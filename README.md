@@ -29,12 +29,15 @@ Tests: `pnpm test` from the root. The MySQL integration tests also need `TEST_DA
 
 ## Deploying on Hostinger
 
-Hostinger's Node.js web hosting builds the app from GitHub. Create a MySQL database in hPanel, set `DATABASE_URL` (host `127.0.0.1`) and the seed variables as the site's environment variables, then run the migrate and seed scripts once.
+Hostinger's Node.js web hosting builds the app from GitHub. The site runs at https://tevah.exaltesglobal.com.
+
+- Build settings: Node 22, pnpm, framework Next.js, root directory `apps/web`, output `.next`, build script `build:hostinger`. That script builds the app, then applies migrations and runs the seed, so each deploy brings the database up to date.
+- Environment variables (set in hPanel or through the API): `DATABASE_URL=mysql://USER:PASSWORD@127.0.0.1:3306/DB`. Use host `127.0.0.1`, not `localhost` and not the `srvNNNN.hstgr.io` name. For the very first deploy also set `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD`. The seed skips once the company exists, so the password variable can be removed after that.
 
 ## Roadmap
 
 1. ✅ Foundation: auth, companies, contacts, products, chart of accounts, GST engine
-2. Sales invoices, vendor bills with TDS, payments, ledger posting
+2. ✅ Sales invoices, credit and debit notes, vendor bills with TDS, payments, ledger posting
 3. Reports: P&L, balance sheet, trial balance, ledgers, GSTR-1/3B, bank reconciliation
 4. Projects and tasks; Odoo import
 5. Parallel month-end run, then switch off Odoo
