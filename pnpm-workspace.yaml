@@ -1,6 +1,13 @@
 packages:
   - apps/*
   - packages/*
+# pnpm 10
 onlyBuiltDependencies:
   - esbuild
   - sharp
+# pnpm 11 (Hostinger's build runs pnpm 11 whatever packageManager says)
+allowBuilds:
+  esbuild: true
+  sharp: true
+pmOnFail: ignore
+minimumReleaseAge: 0
