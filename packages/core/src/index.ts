@@ -5,3 +5,4 @@ export * from "./gst";
 export * from "./ledger";
 export * from "./posting";
 export * from "./coa";
+export * from "./documents";
