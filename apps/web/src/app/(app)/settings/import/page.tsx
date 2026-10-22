@@ -39,7 +39,8 @@ export default async function OdooImportPage() {
       <div>
         <h2 className="mb-2 font-semibold">2. Upload, preview, then import</h2>
         <p className="mb-3 text-sm text-stone-600">
-          You can run the import again later with a fresh export: anything already imported is skipped, and only new records are added.
+          Run it again with a fresh export as often as you like: anything already imported is skipped. While you run Tevah and Odoo side by side, an entry
+          you typed into both is recognised and linked rather than added twice, and Preview lists anything that is only in one of them.
         </p>
         <ImportForm />
       </div>

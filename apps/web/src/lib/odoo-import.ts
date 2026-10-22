@@ -4,6 +4,7 @@ import {
   commercialPartner,
   compareBalances,
   documentFromMove,
+  entryFingerprint,
   gstRateBps,
   isStateCode,
   odooAccountTag,
@@ -35,6 +36,7 @@ import {
   timeEntries,
 } from "@/db/schema";
 import { audit } from "./audit";
+import { entrySources } from "./journal";
 import type { Session } from "./auth";
 import { members } from "./projects";
 
@@ -161,6 +163,12 @@ export interface ImportReport {
   exportedAt: string;
   added: Record<"contacts" | "products" | "accounts" | "entries" | "documents" | "projects" | "tasks" | "timesheets", number>;
   alreadyImported: number;
+  /** Odoo entries that were already typed into Tevah (same date, same accounts and amounts) and were linked instead of added. */
+  matched: { odoo: string; tevah: string; href: string; date: string; amount: number }[];
+  /** Posted Odoo entries that are new to Tevah. */
+  onlyInOdoo: { odoo: string; date: string; amount: number }[];
+  /** Posted Tevah entries in the export's date range that match nothing in Odoo. */
+  onlyInTevah: { id: string; tevah: string; href: string; date: string; amount: number }[];
   accountMap: { odoo: string; tevah: string; created: boolean }[];
   trialBalance: { rows: { account: string; odoo: number; tevah: number; difference: number }[]; matches: boolean };
   /** Posted entries in Tevah that didn't come from Odoo; they make Tevah's own reports differ from Odoo's. */
@@ -416,6 +424,37 @@ export async function importOdoo(s: Scope, session: Session, data: OdooExport): 
   const docRows: (typeof documents.$inferInsert)[] = [];
   const docLineRows: (typeof documentLines.$inferInsert)[] = [];
 
+  // Entries typed into Tevah during a parallel run are linked to their Odoo twin rather than imported twice.
+  const nativeLines = await s.tx
+    .select({
+      id: journalEntries.id,
+      number: journalEntries.number,
+      date: journalEntries.date,
+      sourceRef: journalEntries.sourceRef,
+      accountId: journalLines.accountId,
+      debit: journalLines.debit,
+      credit: journalLines.credit,
+    })
+    .from(journalLines)
+    .innerJoin(journalEntries, s.own(journalEntries, eq(journalEntries.id, journalLines.entryId), eq(journalEntries.status, "posted"), isNull(journalEntries.externalRef)))
+    .where(s.own(journalLines));
+  type NativeEntry = { id: string; number: string | null; date: string; sourceRef: string | null; lines: { accountId: string; debit: number; credit: number }[] };
+  const native = new Map<string, NativeEntry>();
+  for (const l of nativeLines) {
+    const e = native.get(l.id) ?? { id: l.id, number: l.number, date: l.date, sourceRef: l.sourceRef, lines: [] };
+    e.lines.push({ accountId: l.accountId, debit: Number(l.debit), credit: Number(l.credit) });
+    native.set(l.id, e);
+  }
+  const nativeByPrint = new Map<string, NativeEntry[]>();
+  for (const e of native.values()) {
+    const key = entryFingerprint(e.date, e.lines);
+    nativeByPrint.set(key, [...(nativeByPrint.get(key) ?? []), e]);
+  }
+  const debits = (lines: readonly { debit: number }[]) => lines.reduce((t, l) => t + l.debit, 0);
+  const matched: ImportReport["matched"] = [];
+  const matchedNumbers = new Map<string, string>();
+  const onlyInOdoo: ImportReport["onlyInOdoo"] = [];
+
   const moves = [...data.moves].sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
   for (const m of moves) {
     if (done.has(m.id)) continue;
@@ -438,6 +477,23 @@ export async function importOdoo(s: Scope, session: Session, data: OdooExport): 
     } catch (e) {
       warn(`${m.name}: ${e instanceof Error ? e.message : "doesn't balance"}; entry skipped.`);
       continue;
+    }
+
+    if (m.state === "posted") {
+      const twin = nativeByPrint.get(entryFingerprint(m.date, entryLines))?.shift();
+      if (twin) {
+        native.delete(twin.id);
+        await s.tx.update(journalEntries).set({ externalRef: REF.move(m.id) }).where(s.own(journalEntries, eq(journalEntries.id, twin.id)));
+        if (twin.sourceRef?.startsWith("document:")) {
+          const docId = twin.sourceRef.slice("document:".length);
+          docByMove.set(m.id, docId);
+          await s.tx.update(documents).set({ externalRef: REF.move(m.id) }).where(s.own(documents, eq(documents.id, docId), isNull(documents.externalRef)));
+        }
+        matchedNumbers.set(twin.id, twin.number ?? "");
+        matched.push({ odoo: m.name, tevah: twin.id, href: "", date: m.date, amount: debits(entryLines) });
+        continue;
+      }
+      if (onlyInOdoo.length < 500) onlyInOdoo.push({ odoo: m.name, date: m.date, amount: debits(entryLines) });
     }
 
     const entryId = randomUUID();
@@ -671,6 +727,26 @@ export async function importOdoo(s: Scope, session: Session, data: OdooExport): 
   if (data.checks && data.checks.postedLineCount !== data.checks.exportedPostedLines) {
     warn(`Odoo reported ${data.checks.postedLineCount} posted journal items but the export holds ${data.checks.exportedPostedLines}. Export again before relying on the totals.`);
   }
+  const posted = data.moves.filter((m) => m.state === "posted").map((m) => m.date).sort();
+  const onlyInTevah = posted.length
+    ? [...native.values()]
+        .filter((e) => e.date >= posted[0]! && e.date <= posted.at(-1)!)
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .slice(0, 500)
+        .map((e) => ({ id: e.id, tevah: e.number ?? "", href: "", date: e.date, amount: debits(e.lines) }))
+    : [];
+  // Name Tevah's side by the invoice, bill or payment behind it, as the ledger views do.
+  const sources = await entrySources(s, [...matched.map((m) => m.tevah), ...onlyInTevah.map((e) => e.id)]);
+  const named = (entryId: string, number: string) => sources.get(entryId) ?? { href: `/journal/${entryId}`, label: number || "Journal entry" };
+  for (const m of matched) {
+    const n = named(m.tevah, matchedNumbers.get(m.tevah) ?? "");
+    Object.assign(m, { tevah: n.label, href: n.href });
+  }
+  for (const e of onlyInTevah) {
+    const n = named(e.id, e.tevah);
+    Object.assign(e, { tevah: n.label, href: n.href });
+  }
+
   await audit(s, session, "create", "odoo_import", randomUUID(), { source: data.source.url, exportedAt: data.exportedAt, added });
 
   return {
@@ -678,6 +754,9 @@ export async function importOdoo(s: Scope, session: Session, data: OdooExport): 
     exportedAt: data.exportedAt,
     added,
     alreadyImported,
+    matched,
+    onlyInOdoo,
+    onlyInTevah,
     accountMap: report,
     trialBalance: {
       matches: compared.matches,

@@ -3,6 +3,7 @@ import {
   commercialPartner,
   compareBalances,
   documentFromMove,
+  entryFingerprint,
   gstRateBps,
   odooAccountTag,
   odooAccountType,
@@ -172,5 +173,35 @@ describe("odoo mapping", () => {
       { key: "1200", odoo: 500, tevah: 500, difference: 0 },
       { key: "4100", odoo: -500, tevah: -400, difference: 100 },
     ]);
+  });
+});
+
+describe("entryFingerprint", () => {
+  it("is the same however the lines are split or ordered", () => {
+    const a = entryFingerprint("2026-10-01", [
+      { accountId: "debtors", debit: 11800, credit: 0 },
+      { accountId: "sales", debit: 0, credit: 6000 },
+      { accountId: "sales", debit: 0, credit: 4000 },
+      { accountId: "cgst", debit: 0, credit: 900 },
+      { accountId: "sgst", debit: 0, credit: 900 },
+    ]);
+    const b = entryFingerprint("2026-10-01", [
+      { accountId: "sgst", debit: 0, credit: 900 },
+      { accountId: "sales", debit: 0, credit: 10000 },
+      { accountId: "cgst", debit: 0, credit: 900 },
+      { accountId: "debtors", debit: 11800, credit: 0 },
+    ]);
+    expect(a).toBe(b);
+    expect(a).toBe("2026-10-01|cgst:-900,debtors:11800,sales:-10000,sgst:-900");
+  });
+
+  it("differs on date or amount, and ignores accounts that net to zero", () => {
+    const lines = [
+      { accountId: "bank", debit: 500, credit: 0 },
+      { accountId: "debtors", debit: 0, credit: 500 },
+    ];
+    expect(entryFingerprint("2026-10-01", lines)).not.toBe(entryFingerprint("2026-10-02", lines));
+    expect(entryFingerprint("2026-10-01", [...lines, { accountId: "x", debit: 5, credit: 5 }])).toBe(entryFingerprint("2026-10-01", lines));
+    expect(entryFingerprint("2026-10-01", [{ ...lines[0]!, debit: 501 }, lines[1]!])).not.toBe(entryFingerprint("2026-10-01", lines));
   });
 });
