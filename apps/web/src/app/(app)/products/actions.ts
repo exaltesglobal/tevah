@@ -1,6 +1,7 @@
 "use server";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
+import { eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { withOrg } from "@/db";
@@ -16,28 +17,26 @@ export async function saveProduct(id: string | null, _prev: FormState, data: For
   if (!parsed.success) return zodErrors(parsed.error, data);
   const values = parsed.data;
 
-  const result = await withOrg(session.orgId, async (tx) => {
-    const accountIds = [values.incomeAccountId, values.expenseAccountId].filter((a): a is string => !!a);
+  const result = await withOrg(session.orgId, async (s) => {
+    const accountIds = [...new Set([values.incomeAccountId, values.expenseAccountId].filter((a): a is string => !!a))];
     if (accountIds.length) {
-      const found = await tx.select({ id: accounts.id }).from(accounts).where(inArray(accounts.id, accountIds));
-      if (found.length !== new Set(accountIds).size) return { error: "Choose accounts from your chart of accounts." };
+      const found = await s.tx
+        .select({ id: accounts.id })
+        .from(accounts)
+        .where(s.own(accounts, inArray(accounts.id, accountIds)));
+      if (found.length !== accountIds.length) return { error: "Choose accounts from your chart of accounts." };
     }
     if (id) {
-      const [row] = await tx
-        .update(products)
-        .set(values)
-        .where(and(eq(products.id, id), eq(products.orgId, session.orgId)))
-        .returning({ id: products.id });
-      if (!row) return { error: "Product not found." };
-      await audit(tx, session, "update", "product", row.id, values);
-      return { id: row.id };
+      const [existing] = await s.tx.select({ id: products.id }).from(products).where(s.own(products, eq(products.id, id)));
+      if (!existing) return { error: "Product not found." };
+      await s.tx.update(products).set(values).where(s.own(products, eq(products.id, id)));
+      await audit(s, session, "update", "product", id, values);
+      return { id };
     }
-    const [row] = await tx
-      .insert(products)
-      .values({ ...values, orgId: session.orgId })
-      .returning({ id: products.id });
-    await audit(tx, session, "create", "product", row!.id, values);
-    return { id: row!.id };
+    const newId = randomUUID();
+    await s.tx.insert(products).values({ ...values, id: newId, orgId: s.orgId });
+    await audit(s, session, "create", "product", newId, values);
+    return { id: newId };
   });
 
   if ("error" in result) return { error: result.error, values: submitted(data) };
@@ -47,9 +46,9 @@ export async function saveProduct(id: string | null, _prev: FormState, data: For
 
 export async function setProductArchived(id: string, archived: boolean): Promise<void> {
   const session = await requireWriter();
-  await withOrg(session.orgId, async (tx) => {
-    await tx.update(products).set({ archived }).where(eq(products.id, id));
-    await audit(tx, session, archived ? "archive" : "restore", "product", id);
+  await withOrg(session.orgId, async (s) => {
+    const [res] = await s.tx.update(products).set({ archived }).where(s.own(products, eq(products.id, id)));
+    if (res.affectedRows) await audit(s, session, archived ? "archive" : "restore", "product", id);
   });
   revalidatePath("/products");
   revalidatePath(`/products/${id}`);

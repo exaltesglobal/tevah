@@ -12,9 +12,9 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const session = await requireSession();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const data = await withOrg(session.orgId, async (tx) => {
-    const [product] = await tx.select().from(products).where(eq(products.id, id));
-    return product ? { product, ...(await accountOptions(tx)) } : null;
+  const data = await withOrg(session.orgId, async (s) => {
+    const [product] = await s.tx.select().from(products).where(s.own(products, eq(products.id, id)));
+    return product ? { product, ...(await accountOptions(s)) } : null;
   });
   if (!data) notFound();
   const { product } = data;

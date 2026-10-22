@@ -5,28 +5,31 @@ A GST-native web ERP for Indian SMEs. The first live company on it is Exaltes Gl
 ## What's here (milestone 1)
 
 - **`packages/core`**: framework-free business logic with unit tests. Money in integer paise, GSTIN/PAN validation, the GST engine (CGST/SGST vs IGST, discounts, rupee round-off, reverse charge), double-entry posting rules for invoices, bills (with TDS), credit notes and payments, and a starter Indian chart of accounts.
-- **`apps/web`**: Next.js app with Postgres (Drizzle ORM). Email/password login, company setup, contacts, products and services, and chart of accounts with balances.
+- **`apps/web`**: Next.js app on MySQL/MariaDB (Drizzle ORM), built to run on Hostinger's Node.js web hosting with its MySQL database. Email/password login, company setup, contacts, products and services, and chart of accounts with balances.
 
 ## Multi-tenancy
 
-Every business table has an `org_id` and a Postgres row-level security policy. The app connects as `tevah_app`, which doesn't own the tables, so Postgres enforces the policy on every query. Requests run inside `withOrg(orgId, ...)`, which sets `app.org_id` for the transaction. Migrations run as the owner role. `apps/web/test/tenancy.test.ts` proves one company can't read or write another's rows.
+Every business table has an `org_id`. MySQL has no row-level security, so isolation lives in the app: tenant queries run inside `withOrg(orgId, s => ...)` and filter with `s.own(table, ...)`, and inserts carry `s.orgId`. `apps/web/test/tenancy.test.ts` has a guard that fails CI if any query on a tenant table in `src/` skips `own(...)`, plus integration tests showing one company can't read or change another's rows.
 
 ## Running locally
 
-Needs Node 22, pnpm and Postgres 16.
+Needs Node 22+, pnpm and MySQL 8 or MariaDB 10.6+.
 
 ```sh
 pnpm install
-cp apps/web/.env.example apps/web/.env   # then edit
-createdb tevah_dev                        # as a role with CREATEROLE, e.g. `tevah`
+cp apps/web/.env.example apps/web/.env   # then set DATABASE_URL and the seed admin
 cd apps/web
 set -a; . ./.env; set +a
-pnpm db:migrate     # schema + creates the tevah_app role
+pnpm db:migrate     # creates the tables
 pnpm db:seed        # creates Exaltes Global and the first admin
 pnpm dev
 ```
 
-Tests: `pnpm test` from the root. The tenancy tests also need `TEST_DATABASE_ADMIN_URL` and `TEST_DATABASE_URL` pointing at a throwaway database. Without them they're skipped.
+Tests: `pnpm test` from the root. The MySQL integration tests also need `TEST_DATABASE_URL` pointing at a throwaway database. Without it they're skipped, but the scoping guard still runs.
+
+## Deploying on Hostinger
+
+Hostinger's Node.js web hosting builds the app from GitHub. Create a MySQL database in hPanel, set `DATABASE_URL` (host `127.0.0.1`) and the seed variables as the site's environment variables, then run the migrate and seed scripts once.
 
 ## Roadmap
 

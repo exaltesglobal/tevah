@@ -1,5 +1,5 @@
 import { ACCOUNT_TYPES, formatINR, naturalBalance, type AccountType } from "@tevah/core";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { Badge, PageHeader, Table, Th } from "@/components/ui";
 import { withOrg } from "@/db";
 import { accounts, journalEntries, journalLines } from "@/db/schema";
@@ -17,27 +17,28 @@ const TYPE_LABEL: Record<AccountType, string> = {
 
 export default async function AccountsPage() {
   const session = await requireSession();
-  const rows = await withOrg(session.orgId, (tx) =>
-    tx
+  const rows = await withOrg(session.orgId, (s) => {
+    const posted = sql`${journalEntries.id} is not null`;
+    return s.tx
       .select({
         id: accounts.id,
         code: accounts.code,
         name: accounts.name,
         type: accounts.type,
         systemTag: accounts.systemTag,
-        debit: sql<number>`coalesce(sum(${journalLines.debit}) filter (where ${journalEntries.id} is not null), 0)::bigint`.mapWith(Number),
-        credit: sql<number>`coalesce(sum(${journalLines.credit}) filter (where ${journalEntries.id} is not null), 0)::bigint`.mapWith(Number),
+        debit: sql<number>`coalesce(sum(case when ${posted} then ${journalLines.debit} end), 0)`.mapWith(Number),
+        credit: sql<number>`coalesce(sum(case when ${posted} then ${journalLines.credit} end), 0)`.mapWith(Number),
       })
       .from(accounts)
-      .leftJoin(journalLines, eq(journalLines.accountId, accounts.id))
+      .leftJoin(journalLines, s.own(journalLines, eq(journalLines.accountId, accounts.id)))
       .leftJoin(
         journalEntries,
-        and(eq(journalEntries.id, journalLines.entryId), eq(journalEntries.status, "posted")),
+        s.own(journalEntries, eq(journalEntries.id, journalLines.entryId), eq(journalEntries.status, "posted")),
       )
-      .where(eq(accounts.archived, false))
+      .where(s.own(accounts, eq(accounts.archived, false)))
       .groupBy(accounts.id)
-      .orderBy(asc(accounts.code)),
-  );
+      .orderBy(asc(accounts.code));
+  });
 
   return (
     <>

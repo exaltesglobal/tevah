@@ -1,5 +1,5 @@
 import { formatINR } from "@tevah/core";
-import { and, asc, eq, ilike, or, type SQL } from "drizzle-orm";
+import { asc, eq, like, or, type SQL } from "drizzle-orm";
 import Link from "next/link";
 import { Badge, Button, ButtonLink, EmptyState, Input, PageHeader, Select, Table, Th } from "@/components/ui";
 import { withOrg } from "@/db";
@@ -17,12 +17,12 @@ export default async function ProductsPage({
   const session = await requireSession();
   const { q, archived } = await searchParams;
   const filters: SQL[] = [eq(products.archived, archived === "1")];
-  if (q) filters.push(or(ilike(products.name, `%${q}%`), ilike(products.hsnSac, `${q}%`))!);
-  const rows = await withOrg(session.orgId, (tx) =>
-    tx
+  if (q) filters.push(or(like(products.name, `%${q}%`), like(products.hsnSac, `${q}%`))!);
+  const rows = await withOrg(session.orgId, (s) =>
+    s.tx
       .select()
       .from(products)
-      .where(and(...filters))
+      .where(s.own(products, ...filters))
       .orderBy(asc(products.name)),
   );
 

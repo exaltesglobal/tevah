@@ -11,7 +11,7 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
   const session = await requireSession();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const [contact] = await withOrg(session.orgId, (tx) => tx.select().from(contacts).where(eq(contacts.id, id)));
+  const [contact] = await withOrg(session.orgId, (s) => s.tx.select().from(contacts).where(s.own(contacts, eq(contacts.id, id))));
   if (!contact) notFound();
 
   return (

@@ -1,5 +1,5 @@
 import { stateName } from "@tevah/core";
-import { and, asc, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
+import { asc, eq, inArray, like, or, type SQL } from "drizzle-orm";
 import Link from "next/link";
 import { Badge, Button, ButtonLink, EmptyState, Input, PageHeader, Select, Table, Th } from "@/components/ui";
 import { withOrg } from "@/db";
@@ -18,14 +18,14 @@ export default async function ContactsPage({
   const session = await requireSession();
   const { q, kind, archived } = await searchParams;
   const filters: SQL[] = [eq(contacts.archived, archived === "1")];
-  if (q) filters.push(or(ilike(contacts.name, `%${q}%`), ilike(contacts.gstin, `%${q}%`))!);
+  if (q) filters.push(or(like(contacts.name, `%${q}%`), like(contacts.gstin, `%${q}%`))!);
   if (kind === "customer" || kind === "vendor") filters.push(inArray(contacts.kind, [kind, "both"]));
 
-  const rows = await withOrg(session.orgId, (tx) =>
-    tx
+  const rows = await withOrg(session.orgId, (s) =>
+    s.tx
       .select()
       .from(contacts)
-      .where(and(...filters))
+      .where(s.own(contacts, ...filters))
       .orderBy(asc(contacts.name))
       .limit(500),
   );

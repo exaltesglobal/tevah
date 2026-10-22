@@ -1,5 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { DEFAULT_JOURNALS, INDIA_COA, validateGstin } from "@tevah/core";
-import { sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { withOrg, type Db } from "@/db";
 import { accounts, journals, memberships, orgs, users } from "@/db/schema";
 import { hashPassword } from "./password";
@@ -31,38 +32,40 @@ export async function createOrg(db: Db, org: NewOrg, admin: NewAdmin): Promise<{
   }
   if (!stateCode) throw new Error("A state is required when there is no GSTIN");
 
-  const [created] = await db
-    .insert(orgs)
-    .values({
-      name: org.name,
-      legalName: org.legalName ?? org.name,
-      gstin: org.gstin?.toUpperCase(),
-      pan,
-      tan: org.tan,
-      stateCode,
-    })
-    .returning({ id: orgs.id });
-  const orgId = created!.id;
+  const orgId = randomUUID();
+  await db.insert(orgs).values({
+    id: orgId,
+    name: org.name,
+    legalName: org.legalName ?? org.name,
+    gstin: org.gstin?.toUpperCase(),
+    pan,
+    tan: org.tan,
+    stateCode,
+  });
 
   // An existing user (e.g. an accountant serving several companies) keeps their password.
   const email = admin.email.trim().toLowerCase();
-  const [existing] = await db.select({ id: users.id }).from(users).where(sql`lower(${users.email}) = ${email}`);
-  const userId =
-    existing?.id ??
-    (await db
-      .insert(users)
-      .values({ email, name: admin.name, passwordHash: await hashPassword(admin.password) })
-      .returning({ id: users.id }))[0]!.id;
+  const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
+  let userId = existing?.id;
+  if (!userId) {
+    userId = randomUUID();
+    await db.insert(users).values({ id: userId, email, name: admin.name, passwordHash: await hashPassword(admin.password) });
+  }
   await db.insert(memberships).values({ orgId, userId, role: "admin" });
 
   await withOrg(
     orgId,
-    async (tx) => {
-      const created = await tx
-        .insert(accounts)
-        .values(INDIA_COA.map((a) => ({ orgId, code: a.code, name: a.name, type: a.type, systemTag: a.tag ?? null })))
-        .returning({ id: accounts.id, tag: accounts.systemTag });
-      const byTag = new Map(created.map((a) => [a.tag, a.id]));
+    async ({ tx }) => {
+      const coa = INDIA_COA.map((a) => ({
+        id: randomUUID(),
+        orgId,
+        code: a.code,
+        name: a.name,
+        type: a.type,
+        systemTag: a.tag ?? null,
+      }));
+      await tx.insert(accounts).values(coa);
+      const byTag = new Map(coa.map((a) => [a.systemTag, a.id]));
       await tx.insert(journals).values(
         DEFAULT_JOURNALS.map((j) => ({
           orgId,

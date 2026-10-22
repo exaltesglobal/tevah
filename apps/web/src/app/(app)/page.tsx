@@ -9,18 +9,18 @@ import { requireSession } from "@/lib/auth";
 export default async function Dashboard() {
   const session = await requireSession();
   const [org] = await getDb().select().from(orgs).where(eq(orgs.id, session.orgId));
-  const counts = await withOrg(session.orgId, async (tx) => {
-    const [c] = await tx
+  const counts = await withOrg(session.orgId, async (s) => {
+    const [c] = await s.tx
       .select({
-        customers: sql<number>`count(*) filter (where ${contacts.kind} in ('customer','both'))`.mapWith(Number),
-        vendors: sql<number>`count(*) filter (where ${contacts.kind} in ('vendor','both'))`.mapWith(Number),
+        customers: sql<number>`coalesce(sum(${contacts.kind} in ('customer','both')), 0)`.mapWith(Number),
+        vendors: sql<number>`coalesce(sum(${contacts.kind} in ('vendor','both')), 0)`.mapWith(Number),
       })
       .from(contacts)
-      .where(eq(contacts.archived, false));
-    const [p] = await tx
+      .where(s.own(contacts, eq(contacts.archived, false)));
+    const [p] = await s.tx
       .select({ n: sql<number>`count(*)`.mapWith(Number) })
       .from(products)
-      .where(eq(products.archived, false));
+      .where(s.own(products, eq(products.archived, false)));
     return { customers: c?.customers ?? 0, vendors: c?.vendors ?? 0, products: p?.n ?? 0 };
   });
 

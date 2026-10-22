@@ -1,6 +1,7 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { withOrg } from "@/db";
@@ -16,24 +17,20 @@ export async function saveContact(id: string | null, _prev: FormState, data: For
   if (!parsed.success) return zodErrors(parsed.error, data);
   const values = parsed.data;
 
-  const savedId = await withOrg(session.orgId, async (tx) => {
+  const savedId = await withOrg(session.orgId, async (s) => {
     if (id) {
-      const [row] = await tx
-        .update(contacts)
-        .set(values)
-        .where(and(eq(contacts.id, id), eq(contacts.orgId, session.orgId)))
-        .returning({ id: contacts.id });
-      if (!row) throw new Error("Contact not found");
-      await audit(tx, session, "update", "contact", row.id, values);
-      return row.id;
+      const [existing] = await s.tx.select({ id: contacts.id }).from(contacts).where(s.own(contacts, eq(contacts.id, id)));
+      if (!existing) return null;
+      await s.tx.update(contacts).set(values).where(s.own(contacts, eq(contacts.id, id)));
+      await audit(s, session, "update", "contact", id, values);
+      return id;
     }
-    const [row] = await tx
-      .insert(contacts)
-      .values({ ...values, orgId: session.orgId })
-      .returning({ id: contacts.id });
-    await audit(tx, session, "create", "contact", row!.id, values);
-    return row!.id;
+    const newId = randomUUID();
+    await s.tx.insert(contacts).values({ ...values, id: newId, orgId: s.orgId });
+    await audit(s, session, "create", "contact", newId, values);
+    return newId;
   });
+  if (!savedId) return { error: "Contact not found.", values: submitted(data) };
 
   revalidatePath("/contacts");
   redirect(`/contacts/${savedId}`);
@@ -41,9 +38,9 @@ export async function saveContact(id: string | null, _prev: FormState, data: For
 
 export async function setContactArchived(id: string, archived: boolean): Promise<void> {
   const session = await requireWriter();
-  await withOrg(session.orgId, async (tx) => {
-    await tx.update(contacts).set({ archived }).where(eq(contacts.id, id));
-    await audit(tx, session, archived ? "archive" : "restore", "contact", id);
+  await withOrg(session.orgId, async (s) => {
+    const [res] = await s.tx.update(contacts).set({ archived }).where(s.own(contacts, eq(contacts.id, id)));
+    if (res.affectedRows) await audit(s, session, archived ? "archive" : "restore", "contact", id);
   });
   revalidatePath("/contacts");
   revalidatePath(`/contacts/${id}`);

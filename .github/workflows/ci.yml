@@ -9,18 +9,18 @@ jobs:
   check:
     runs-on: ubuntu-latest
     services:
-      postgres:
-        image: postgres:16
+      mysql:
+        image: mysql:8.0
         env:
-          POSTGRES_USER: tevah
-          POSTGRES_PASSWORD: tevah
-          POSTGRES_DB: tevah_test
-        ports: ["5432:5432"]
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: tevah_test
+          MYSQL_USER: tevah
+          MYSQL_PASSWORD: tevah
+        ports: ["3306:3306"]
         options: >-
-          --health-cmd "pg_isready -U tevah" --health-interval 5s --health-timeout 5s --health-retries 10
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -proot" --health-interval 5s --health-timeout 5s --health-retries 20
     env:
-      TEST_DATABASE_ADMIN_URL: postgres://tevah:tevah@localhost:5432/tevah_test
-      TEST_DATABASE_URL: postgres://tevah_app:tevah_app@localhost:5432/tevah_test
+      TEST_DATABASE_URL: mysql://tevah:tevah@127.0.0.1:3306/tevah_test
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
