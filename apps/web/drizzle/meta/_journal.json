@@ -15,6 +15,13 @@
       "when": 1792668435072,
       "tag": "0001_documents_payments",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1792697227155,
+      "tag": "0002_banking",
+      "breakpoints": true
     }
   ]
 }

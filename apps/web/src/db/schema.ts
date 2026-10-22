@@ -416,3 +416,36 @@ export const sequences = mysqlTable(
   },
   (t) => [primaryKey({ columns: [t.orgId, t.key] })],
 );
+
+// ---------------------------------------------------------------------------
+// Banking: imported statement lines, reconciled against the ledger
+
+export const bankStatementLines = mysqlTable(
+  "bank_statement_lines",
+  {
+    id: id(),
+    orgId: orgId(),
+    /** The bank journal (and so the bank account) this statement belongs to. */
+    journalId: uuidCol("journal_id")
+      .notNull()
+      .references(() => journals.id),
+    date: dateCol("date").notNull(),
+    description: varchar("description", { length: 300 }).notNull(),
+    reference: varchar("reference", { length: 100 }),
+    /** Money in is positive, money out negative. */
+    amount: paise("amount"),
+    /** Running balance printed on the statement, when the bank gives one. */
+    balance: bigint("balance", { mode: "number" }),
+    /** Hash of date, amount, text and position, so re-imports skip lines already loaded. */
+    rowKey: char("row_key", { length: 64 }).notNull(),
+    /** Ledger line on the bank account this statement line was matched to. */
+    matchedLineId: uuidCol("matched_line_id").references(() => journalLines.id),
+    importBatch: char("import_batch", { length: 36 }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("bank_statement_lines_org_row_key").on(t.orgId, t.journalId, t.rowKey),
+    uniqueIndex("bank_statement_lines_org_matched_key").on(t.orgId, t.matchedLineId),
+    index("bank_statement_lines_org_journal_date_idx").on(t.orgId, t.journalId, t.date),
+  ],
+);
