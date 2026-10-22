@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, ne } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
@@ -77,4 +77,11 @@ export async function destroySession(): Promise<void> {
   const token = jar.get(COOKIE)?.value;
   if (token) await getDb().delete(sessions).where(eq(sessions.id, tokenHash(token)));
   jar.delete(COOKIE);
+}
+
+/** Signs the user out everywhere except this browser, e.g. after a password change. */
+export async function endOtherSessions(userId: string): Promise<void> {
+  const token = (await cookies()).get(COOKIE)?.value;
+  const others = token ? and(eq(sessions.userId, userId), ne(sessions.id, tokenHash(token))) : eq(sessions.userId, userId);
+  await getDb().delete(sessions).where(others);
 }
