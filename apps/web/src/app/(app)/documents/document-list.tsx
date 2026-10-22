@@ -114,5 +114,5 @@ export function StatusBadge({ doc }: { doc: typeof documents.$inferSelect }) {
   const label = isNote
     ? { unpaid: "Unapplied", partial: "Part applied", paid: "Applied" }[paid]
     : { unpaid: "Unpaid", partial: "Part paid", paid: "Paid" }[paid];
-  return <Badge tone={paid === "paid" ? "brand" : "amber"}>{label}</Badge>;
+  return <Badge tone={paid === "paid" ? "green" : "amber"}>{label}</Badge>;
 }

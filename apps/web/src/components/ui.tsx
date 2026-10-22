@@ -82,11 +82,12 @@ export function Card({ children, className }: { children: ReactNode; className?:
   return <div className={cx("rounded-lg border border-stone-200 bg-white p-5", className)}>{children}</div>;
 }
 
-export function Badge({ children, tone = "stone" }: { children: ReactNode; tone?: "stone" | "brand" | "amber" }) {
+export function Badge({ children, tone = "stone" }: { children: ReactNode; tone?: "stone" | "brand" | "amber" | "green" }) {
   const tones = {
     stone: "bg-stone-100 text-stone-700",
     brand: "bg-brand-50 text-brand-700",
     amber: "bg-amber-50 text-amber-800",
+    green: "bg-green-50 text-green-800",
   };
   return <span className={cx("rounded px-2 py-0.5 text-xs font-medium", tones[tone])}>{children}</span>;
 }

@@ -20,8 +20,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen md:flex">
       <aside className="print:hidden border-b border-stone-200 bg-white md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0 md:border-r md:border-b-0">
         <div className="flex items-center justify-between px-5 py-4 md:block">
-          <Link href="/" className="text-xl font-semibold tracking-tight text-brand-700">
-            Tevah
+          <Link href="/" aria-label="Tevah home">
+            <img src="/tevah-logo.svg" alt="Tevah" width={130} height={32} className="h-8 w-auto" />
           </Link>
           <div className="flex items-center gap-3 text-xs text-stone-500 md:mt-1">
             {session.orgName}
