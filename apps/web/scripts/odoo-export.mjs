@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Read-only export of an Odoo company into one JSON file that Tevah can import
-// (Company → Import from Odoo). Runs on your own computer with Node 18 or later;
+// (Settings → Import from Odoo). Runs on your own computer with Node 18 or later;
 // no packages to install. It only reads from Odoo: search_read, search_count and
 // fields_get. Nothing is created, changed or deleted.
 //
