@@ -449,3 +449,83 @@ export const bankStatementLines = mysqlTable(
     index("bank_statement_lines_org_journal_date_idx").on(t.orgId, t.journalId, t.date),
   ],
 );
+
+// ---------------------------------------------------------------------------
+// Projects, tasks and time
+
+export const projects = mysqlTable(
+  "projects",
+  {
+    id: id(),
+    orgId: orgId(),
+    name: varchar("name", { length: 200 }).notNull(),
+    /** Customer the work is for, when there is one. */
+    contactId: uuidCol("contact_id").references(() => contacts.id),
+    description: text("description"),
+    status: mysqlEnum("status", ["active", "on_hold", "done"]).notNull().default("active"),
+    startDate: dateCol("start_date"),
+    dueDate: dateCol("due_date"),
+    archived: boolean("archived").notNull().default(false),
+    externalRef: varchar("external_ref", { length: 100 }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("projects_org_name_idx").on(t.orgId, t.name), uniqueIndex("projects_org_external_ref_key").on(t.orgId, t.externalRef)],
+);
+
+export const tasks = mysqlTable(
+  "tasks",
+  {
+    id: id(),
+    orgId: orgId(),
+    projectId: uuidCol("project_id")
+      .notNull()
+      .references(() => projects.id),
+    title: varchar("title", { length: 300 }).notNull(),
+    description: text("description"),
+    status: mysqlEnum("status", ["todo", "in_progress", "waiting", "done", "cancelled"]).notNull().default("todo"),
+    /** 0 normal, 1 high. */
+    priority: int("priority").notNull().default(0),
+    assigneeId: uuidCol("assignee_id").references(() => users.id),
+    dueDate: dateCol("due_date"),
+    /** Order within the board column, smallest first. */
+    position: int("position").notNull().default(0),
+    estimateMinutes: int("estimate_minutes"),
+    completedAt: timestamp("completed_at", { fsp: 3 }),
+    createdBy: uuidCol("created_by").references(() => users.id),
+    externalRef: varchar("external_ref", { length: 100 }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("tasks_org_project_status_idx").on(t.orgId, t.projectId, t.status, t.position),
+    index("tasks_org_assignee_idx").on(t.orgId, t.assigneeId, t.status),
+    uniqueIndex("tasks_org_external_ref_key").on(t.orgId, t.externalRef),
+  ],
+);
+
+export const timeEntries = mysqlTable(
+  "time_entries",
+  {
+    id: id(),
+    orgId: orgId(),
+    projectId: uuidCol("project_id")
+      .notNull()
+      .references(() => projects.id),
+    taskId: uuidCol("task_id").references(() => tasks.id),
+    userId: uuidCol("user_id")
+      .notNull()
+      .references(() => users.id),
+    date: dateCol("date").notNull(),
+    minutes: int("minutes").notNull(),
+    note: varchar("note", { length: 500 }),
+    billable: boolean("billable").notNull().default(true),
+    externalRef: varchar("external_ref", { length: 100 }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("time_entries_org_project_date_idx").on(t.orgId, t.projectId, t.date),
+    index("time_entries_org_user_date_idx").on(t.orgId, t.userId, t.date),
+    uniqueIndex("time_entries_org_external_ref_key").on(t.orgId, t.externalRef),
+  ],
+);
