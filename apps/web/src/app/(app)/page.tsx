@@ -1,0 +1,68 @@
+import { stateName } from "@tevah/core";
+import { eq, sql } from "drizzle-orm";
+import Link from "next/link";
+import { Card, PageHeader } from "@/components/ui";
+import { getDb, withOrg } from "@/db";
+import { contacts, orgs, products } from "@/db/schema";
+import { requireSession } from "@/lib/auth";
+
+export default async function Dashboard() {
+  const session = await requireSession();
+  const [org] = await getDb().select().from(orgs).where(eq(orgs.id, session.orgId));
+  const counts = await withOrg(session.orgId, async (tx) => {
+    const [c] = await tx
+      .select({
+        customers: sql<number>`count(*) filter (where ${contacts.kind} in ('customer','both'))`.mapWith(Number),
+        vendors: sql<number>`count(*) filter (where ${contacts.kind} in ('vendor','both'))`.mapWith(Number),
+      })
+      .from(contacts)
+      .where(eq(contacts.archived, false));
+    const [p] = await tx
+      .select({ n: sql<number>`count(*)`.mapWith(Number) })
+      .from(products)
+      .where(eq(products.archived, false));
+    return { customers: c?.customers ?? 0, vendors: c?.vendors ?? 0, products: p?.n ?? 0 };
+  });
+
+  const stats = [
+    { label: "Customers", value: counts.customers, href: "/contacts?kind=customer" },
+    { label: "Vendors", value: counts.vendors, href: "/contacts?kind=vendor" },
+    { label: "Products & services", value: counts.products, href: "/products" },
+  ];
+
+  return (
+    <>
+      <PageHeader title={`Welcome, ${session.userName.split(" ")[0]}`} subtitle={org?.legalName} />
+      <div className="grid gap-4 sm:grid-cols-3">
+        {stats.map((s) => (
+          <Link key={s.label} href={s.href}>
+            <Card className="transition hover:border-brand-500">
+              <div className="text-sm text-stone-500">{s.label}</div>
+              <div className="mt-1 text-3xl font-semibold tabular-nums">{s.value}</div>
+            </Card>
+          </Link>
+        ))}
+      </div>
+      {org && (
+        <Card className="mt-6">
+          <h2 className="mb-3 font-semibold">Company</h2>
+          <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+            <Detail label="GSTIN" value={org.gstin} mono />
+            <Detail label="PAN" value={org.pan} mono />
+            <Detail label="TAN" value={org.tan} mono />
+            <Detail label="State" value={`${stateName(org.stateCode)} (${org.stateCode})`} />
+          </dl>
+        </Card>
+      )}
+    </>
+  );
+}
+
+function Detail({ label, value, mono }: { label: string; value: string | null; mono?: boolean }) {
+  return (
+    <div className="flex justify-between gap-4 border-b border-stone-100 py-1.5">
+      <dt className="text-stone-500">{label}</dt>
+      <dd className={mono ? "font-mono" : undefined}>{value ?? "—"}</dd>
+    </div>
+  );
+}
