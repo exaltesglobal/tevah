@@ -11,3 +11,6 @@ allowBuilds:
   sharp: true
 pmOnFail: ignore
 minimumReleaseAge: 0
+# Plain node_modules folders instead of symlinks, so Next's standalone output
+# (what Hostinger publishes) carries real copies of its dependencies.
+nodeLinker: hoisted

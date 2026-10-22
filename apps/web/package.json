@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:hostinger": "next build --webpack && tsx scripts/migrate.ts && tsx scripts/seed.ts",
+    "build:hostinger": "next build --webpack && node scripts/flatten-standalone.mjs && tsx scripts/migrate.ts && tsx scripts/seed.ts",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
