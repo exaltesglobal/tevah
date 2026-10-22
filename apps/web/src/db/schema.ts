@@ -276,8 +276,8 @@ export const documents = mysqlTable(
     orgId: orgId(),
     type: mysqlEnum("type", ["invoice", "credit_note", "bill", "debit_note"]).notNull(),
     status: mysqlEnum("status", DOCUMENT_STATUSES).notNull().default("draft"),
-    /** Our number, assigned when posted, e.g. "INV/26-27/0001". */
-    number: varchar("number", { length: 16 }),
+    /** Our number, assigned when posted, e.g. "INV/26-27/0001" (or Odoo's, e.g. "BILL/2026/10/0001", when imported). */
+    number: varchar("number", { length: 30 }),
     /** The vendor's own bill number, for purchases. */
     vendorReference: varchar("vendor_reference", { length: 50 }),
     contactId: uuidCol("contact_id")

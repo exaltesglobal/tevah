@@ -1,6 +1,6 @@
 import { stateName } from "@tevah/core";
 import { eq } from "drizzle-orm";
-import { Card, PageHeader } from "@/components/ui";
+import { ButtonLink, Card, PageHeader } from "@/components/ui";
 import { getDb } from "@/db";
 import { orgs } from "@/db/schema";
 import { requireSession } from "@/lib/auth";
@@ -16,6 +16,13 @@ export default async function SettingsPage() {
       <PageHeader
         title="Company details"
         subtitle={`GSTIN ${org!.gstin ?? "not registered"} · ${stateName(org!.stateCode)} · PAN ${org!.pan ?? "—"}`}
+        actions={
+          session.role === "admin" && (
+            <ButtonLink href="/settings/import" variant="secondary">
+              Import from Odoo
+            </ButtonLink>
+          )
+        }
       />
       <Card>
         <CompanyForm org={org!} />

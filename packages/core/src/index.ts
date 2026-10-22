@@ -10,3 +10,4 @@ export * from "./reports";
 export * from "./gstr";
 export * from "./bank";
 export * from "./projects";
+export * from "./odoo";
