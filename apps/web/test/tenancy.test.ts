@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { eq, getTableName, is } from "drizzle-orm";
 import { MySqlTable } from "drizzle-orm/mysql-core";
 import type mysql from "mysql2/promise";
@@ -28,7 +29,7 @@ function sourceFiles(dir: string): string[] {
  * (reads, joins, updates, deletes) or carry `orgId` (inserts).
  */
 describe("tenant scoping convention", () => {
-  const src = new URL("../src", import.meta.url).pathname;
+  const src = fileURLToPath(new URL("../src", import.meta.url));
   const files = sourceFiles(src).filter((f) => !f.endsWith("db/schema.ts") && !f.endsWith("lib/org-setup.ts"));
   const tables = TENANT_TABLES.join("|");
   const query = new RegExp(`\\.(from|update|delete|leftJoin|innerJoin|insert)\\((${tables})\\b`, "g");
