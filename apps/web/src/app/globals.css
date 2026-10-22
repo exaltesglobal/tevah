@@ -12,3 +12,9 @@
 body {
   @apply bg-stone-50 text-stone-900 antialiased;
 }
+
+@media print {
+  body {
+    @apply bg-white;
+  }
+}

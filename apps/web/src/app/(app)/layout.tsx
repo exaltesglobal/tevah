@@ -5,16 +5,20 @@ import { NavLink } from "./nav-link";
 
 const NAV = [
   { href: "/", label: "Dashboard" },
+  { href: "/sales", label: "Sales" },
+  { href: "/purchases", label: "Purchases" },
+  { href: "/payments", label: "Payments" },
   { href: "/contacts", label: "Contacts" },
   { href: "/products", label: "Products & services" },
   { href: "/accounts", label: "Chart of accounts" },
+  { href: "/settings", label: "Company" },
 ];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
   return (
     <div className="min-h-screen md:flex">
-      <aside className="border-b border-stone-200 bg-white md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0 md:border-r md:border-b-0">
+      <aside className="print:hidden border-b border-stone-200 bg-white md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0 md:border-r md:border-b-0">
         <div className="flex items-center justify-between px-5 py-4 md:block">
           <Link href="/" className="text-xl font-semibold tracking-tight text-brand-700">
             Tevah
@@ -41,7 +45,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </form>
         </div>
       </aside>
-      <main className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8 md:py-8">{children}</main>
+      <main className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8 md:py-8 print:max-w-none print:p-0">{children}</main>
     </div>
   );
 }

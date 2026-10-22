@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "dcacd3e8-7799-46a8-93c1-b1cfd809ac82",
+  "id": "d49d0648-d235-48e5-826a-f3a98ddc1507",
   "prevId": "0a1fd1f0-d6ad-42f0-87ba-2393220a986a",
   "tables": {
     "accounts": {
@@ -763,6 +763,14 @@
         "tds_amount": {
           "name": "tds_amount",
           "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "tds_rate_bps": {
+          "name": "tds_rate_bps",
+          "type": "int",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,

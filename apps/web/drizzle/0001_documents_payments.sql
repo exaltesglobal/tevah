@@ -41,6 +41,7 @@ CREATE TABLE `documents` (
 	`round_off` bigint NOT NULL DEFAULT 0,
 	`total` bigint NOT NULL DEFAULT 0,
 	`tds_amount` bigint NOT NULL DEFAULT 0,
+	`tds_rate_bps` int NOT NULL DEFAULT 0,
 	`tds_section` varchar(10),
 	`amount_paid` bigint NOT NULL DEFAULT 0,
 	`notes` text,

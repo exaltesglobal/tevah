@@ -298,8 +298,9 @@ export const documents = mysqlTable(
     igst: paise("igst"),
     roundOff: paise("round_off"),
     total: paise("total"),
-    /** TDS withheld on a vendor bill. */
+    /** TDS withheld on a vendor bill, and the rate it was worked out at. */
     tdsAmount: paise("tds_amount"),
+    tdsRateBps: int("tds_rate_bps").notNull().default(0),
     tdsSection: varchar("tds_section", { length: 10 }),
     /** Settled so far by payments and allocations. */
     amountPaid: paise("amount_paid"),

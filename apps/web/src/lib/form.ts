@@ -5,6 +5,8 @@ export interface FormState {
   fieldErrors?: Record<string, string>;
   /** What was submitted, so React's post-action form reset doesn't wipe the user's input. */
   values?: Record<string, string>;
+  /** Set when a form that stays on the page saved successfully. */
+  saved?: boolean;
 }
 
 export const emptyForm: FormState = {};

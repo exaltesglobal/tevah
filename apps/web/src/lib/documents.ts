@@ -134,6 +134,7 @@ export async function saveDraft(
     originalDocumentId: input.originalDocumentId ?? null,
     tdsSection: tdsAmount ? (input.tdsSection ?? null) : null,
     tdsAmount,
+    tdsRateBps: tdsAmount ? input.tdsRate : 0,
     notes: input.notes ?? null,
     taxable: totals.taxable,
     cgst: totals.cgst,
