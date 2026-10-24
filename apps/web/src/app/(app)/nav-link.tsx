@@ -11,10 +11,12 @@ export function NavLink({ href, siblings = [], children }: { href: string; sibli
   return (
     <Link
       href={href}
-      className={`whitespace-nowrap rounded-md px-3 py-2 text-sm ${
-        active ? "bg-brand-50 font-medium text-brand-700" : "text-stone-600 hover:bg-stone-100"
+      aria-current={active ? "page" : undefined}
+      className={`relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm whitespace-nowrap transition-colors ${
+        active ? "bg-white/[0.08] font-medium text-white" : "text-stone-300 hover:bg-white/[0.05] hover:text-white"
       }`}
     >
+      {active && <span className="absolute top-1.5 bottom-1.5 left-0 hidden w-[3px] rounded-full bg-brand-500 md:block" />}
       {children}
     </Link>
   );

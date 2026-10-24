@@ -24,14 +24,20 @@
 
   /* Errors use the app's danger orange-red, never brand crimson. */
   --color-red-50: #fdf0eb;
+  --color-red-100: #fbe0d6;
   --color-red-200: #f6c9b9;
+  --color-red-500: #e0532b;
   --color-red-600: #d4380d;
   --color-red-700: #b02e0a;
 
   /* Status colors from the brand kit: success green, warning amber. */
   --color-green-50: #e9f4ee;
+  --color-green-200: #bfe0cd;
+  --color-green-500: #2e9e63;
   --color-green-800: #1f7a4d;
   --color-amber-50: #fbf3e4;
+  --color-amber-200: #efd9ac;
+  --color-amber-500: #d39a2c;
   --color-amber-700: #96621a;
   --color-amber-800: #7d5216;
 
@@ -40,6 +46,13 @@
 
 body {
   @apply bg-stone-50 text-stone-900 antialiased;
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* Money and counts line up in columns. */
+.tabular-nums,
+td {
+  font-variant-numeric: tabular-nums;
 }
 
 @media print {
