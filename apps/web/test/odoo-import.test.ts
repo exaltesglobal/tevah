@@ -11,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { withOrg, type Db } from "@/db";
 import * as schema from "@/db/schema";
 import type { Session } from "@/lib/auth";
+import { postJournalVoucher } from "@/lib/journal";
 import { importOdoo, odooExport, type OdooExport } from "@/lib/odoo-import";
 import { createOrg } from "@/lib/org-setup";
 import { accountTotals } from "@/lib/reports";
@@ -155,5 +156,37 @@ describe.skipIf(!url)("Odoo import against MySQL", () => {
     expect(again.added).toEqual({ contacts: 0, products: 0, accounts: 0, entries: 0, documents: 0, projects: 0, tasks: 0, timesheets: 0 });
     expect(again.alreadyImported).toBe(8);
     expect(again.trialBalance.matches).toBe(true);
+  });
+
+  it("links entries typed into both systems during a parallel run instead of adding them twice", async () => {
+    const original = data.moves.find((m) => m.name === "INV/2026/00001")!;
+    const [entry] = await db.select().from(schema.journalEntries).where(eq(schema.journalEntries.externalRef, `odoo:account.move:${original.id}`));
+    const lines = await db.select().from(schema.journalLines).where(eq(schema.journalLines.entryId, entry!.id));
+    const jv = (date: string, narration: string) =>
+      as((s) =>
+        postJournalVoucher(s, session, {
+          date,
+          narration,
+          lines: lines.map((l) => ({ accountId: l.accountId, contactId: null, description: null, debit: Number(l.debit), credit: Number(l.credit) })),
+        }),
+      );
+    // The same sale entered in Tevah and in Odoo, one only in Tevah, and one only in Odoo.
+    const twinId = await jv("2026-10-25", "Typed into both");
+    const loneId = await jv("2026-10-27", "Only typed into Tevah");
+    const copy = (id: number, name: string, date: string) => ({ ...original, id, name, date, invoiceDate: date, reversedEntryId: null });
+    const next = { ...data, moves: [...data.moves, copy(900, "INV/2026/00099", "2026-10-25"), copy(901, "INV/2026/00100", "2026-10-26"), copy(902, "INV/2026/00101", "2026-10-28")] };
+
+    const report = await as((s) => importOdoo(s, session, next));
+    expect(report.matched).toEqual([{ odoo: "INV/2026/00099", tevah: expect.stringMatching(/^JV\//), href: `/journal/${twinId}`, date: "2026-10-25", amount: 29500_00 }]);
+    expect(report.onlyInOdoo.map((m) => m.odoo)).toEqual(["INV/2026/00100", "INV/2026/00101"]);
+    expect(report.onlyInTevah).toEqual([{ id: loneId, tevah: expect.stringMatching(/^JV\//), href: `/journal/${loneId}`, date: "2026-10-27", amount: 29500_00 }]);
+    expect(report.added).toMatchObject({ entries: 2, documents: 2 });
+    const [twin] = await db.select().from(schema.journalEntries).where(eq(schema.journalEntries.id, twinId));
+    expect(twin!.externalRef).toBe("odoo:account.move:900");
+
+    const again = await as((s) => importOdoo(s, session, next));
+    expect(again.matched).toEqual([]);
+    expect(again.added.entries).toBe(0);
+    expect(again.onlyInTevah.map((e) => e.id)).toEqual([loneId]);
   });
 });

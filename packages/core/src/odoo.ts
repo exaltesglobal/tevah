@@ -337,3 +337,19 @@ export function compareBalances(odoo: ReadonlyMap<string, Paise>, tevah: Readonl
     .filter((r) => r.odoo !== 0 || r.tevah !== 0);
   return { rows, matches: rows.every((r) => r.difference === 0) };
 }
+
+/**
+ * What an entry does to the ledger: its date and the net movement on each
+ * account. Two entries with the same fingerprint post the same thing, however
+ * their lines are split, so an invoice typed into both Odoo and Tevah during a
+ * parallel run can be recognised as one.
+ */
+export function entryFingerprint(date: string, lines: readonly { accountId: string; debit: Paise; credit: Paise }[]): string {
+  const net = new Map<string, number>();
+  for (const l of lines) net.set(l.accountId, (net.get(l.accountId) ?? 0) + l.debit - l.credit);
+  const parts = [...net]
+    .filter(([, n]) => n !== 0)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([a, n]) => `${a}:${n}`);
+  return `${date}|${parts.join(",")}`;
+}

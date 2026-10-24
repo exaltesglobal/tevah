@@ -1,6 +1,7 @@
 "use client";
 
 import { formatINR } from "@tevah/core";
+import Link from "next/link";
 import { useActionState, useRef, useState } from "react";
 import { Button, Card, FormError, Input, Table, Th } from "@/components/ui";
 import { runOdooImport, type ImportState } from "./actions";
@@ -135,6 +136,57 @@ export function ImportForm() {
             </Table>
           </section>
 
+          <section>
+            <h2 className="mb-1 font-semibold">Parallel run check</h2>
+            <p className="mb-3 text-sm text-stone-600">
+              {r.onlyInTevah.length === 0 && r.trialBalance.matches
+                ? "✓ Every posted entry in Tevah has a twin in Odoo."
+                : "Entries are paired when they have the same date and post the same amounts to the same accounts."}
+            </p>
+            <div className="grid gap-6 lg:grid-cols-3">
+              <EntryList title={`Already in both (${r.matched.length})`} empty="None typed into both yet.">
+                {r.matched.map((e) => (
+                  <tr key={e.odoo}>
+                    <td>{e.odoo}</td>
+                    <td>
+                      <Link href={e.href} className="text-stone-500 underline">
+                        {e.tevah}
+                      </Link>
+                    </td>
+                    <td className="text-right tabular-nums">{formatINR(e.amount)}</td>
+                  </tr>
+                ))}
+              </EntryList>
+              <EntryList title={`Only in Odoo (${r.onlyInOdoo.length})`} empty="Nothing new in Odoo.">
+                {r.onlyInOdoo.map((e) => (
+                  <tr key={e.odoo}>
+                    <td>{e.odoo}</td>
+                    <td className="text-stone-500">{e.date}</td>
+                    <td className="text-right tabular-nums">{formatINR(e.amount)}</td>
+                  </tr>
+                ))}
+              </EntryList>
+              <EntryList title={`Only in Tevah (${r.onlyInTevah.length})`} empty="Nothing missing from Odoo.">
+                {r.onlyInTevah.map((e) => (
+                  <tr key={e.id}>
+                    <td>
+                      <Link href={e.href} className="underline">
+                        {e.tevah}
+                      </Link>
+                    </td>
+                    <td className="text-stone-500">{e.date}</td>
+                    <td className="text-right tabular-nums">{formatINR(e.amount)}</td>
+                  </tr>
+                ))}
+              </EntryList>
+            </div>
+            {r.onlyInTevah.length > 0 && (
+              <p className="mt-2 text-xs text-stone-500">
+                An entry only in Tevah usually means it was missed in Odoo or entered with a different date or amount. Fix whichever side is wrong and run the check again.
+              </p>
+            )}
+          </section>
+
           <details className="text-sm">
             <summary className="cursor-pointer font-semibold">How Odoo accounts map to Tevah ({r.accountMap.length})</summary>
             <div className="mt-2">
@@ -171,6 +223,28 @@ export function ImportForm() {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+function EntryList({ title, empty, children }: { title: string; empty: string; children: React.ReactNode[] }) {
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-medium">{title}</h3>
+      <div className="max-h-80 overflow-y-auto">
+        <Table
+          head={
+            <tr>
+              <Th>Entry</Th>
+              <Th />
+              <Th className="text-right">Amount</Th>
+            </tr>
+          }
+          empty={children.length ? null : <p className="px-4 py-3 text-sm text-stone-500">{empty}</p>}
+        >
+          {children}
+        </Table>
+      </div>
     </div>
   );
 }
