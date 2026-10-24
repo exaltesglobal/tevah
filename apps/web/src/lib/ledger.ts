@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { assertBalanced, SYSTEM_TAGS, type EntryLine, type SystemAccounts } from "@tevah/core";
-import { eq, isNotNull, sql } from "drizzle-orm";
+import { eq, inArray, isNotNull, sql } from "drizzle-orm";
 import type { Scope } from "@/db";
-import { accounts, journalEntries, journalLines, journals, sequences } from "@/db/schema";
+import { accounts, bankStatementLines, journalEntries, journalLines, journals, sequences } from "@/db/schema";
 
 /** Accounts the posting rules need, by system tag. */
 export async function systemAccounts(s: Scope): Promise<SystemAccounts> {
@@ -77,10 +77,20 @@ export async function createPostedEntry(s: Scope, e: NewEntry): Promise<string> 
   return entryId;
 }
 
-/** Cancelled entries stay for the audit trail but drop out of every balance. */
+/**
+ * Cancelled entries stay for the audit trail but drop out of every balance.
+ * Bank statement lines matched to them go back to unreconciled.
+ */
 export async function cancelEntry(s: Scope, entryId: string): Promise<void> {
   await s.tx
     .update(journalEntries)
     .set({ status: "cancelled" })
     .where(s.own(journalEntries, eq(journalEntries.id, entryId), eq(journalEntries.status, "posted")));
+  const lines = await s.tx.select({ id: journalLines.id }).from(journalLines).where(s.own(journalLines, eq(journalLines.entryId, entryId)));
+  if (lines.length) {
+    await s.tx
+      .update(bankStatementLines)
+      .set({ matchedLineId: null })
+      .where(s.own(bankStatementLines, inArray(bankStatementLines.matchedLineId, lines.map((l) => l.id))));
+  }
 }
