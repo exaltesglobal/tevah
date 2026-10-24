@@ -1,0 +1,1 @@
+ALTER TABLE `documents` MODIFY COLUMN `number` varchar(30);

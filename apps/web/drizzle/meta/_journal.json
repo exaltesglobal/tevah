@@ -22,6 +22,20 @@
       "when": 1792697227155,
       "tag": "0002_banking",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1792698294718,
+      "tag": "0003_projects",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1792699016278,
+      "tag": "0004_odoo_import",
+      "breakpoints": true
     }
   ]
 }

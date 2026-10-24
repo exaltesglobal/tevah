@@ -85,7 +85,7 @@ export async function postJournalVoucher(s: Scope, session: Session, input: Jour
   return entryId;
 }
 
-/** Cancel a manual entry. Entries made by invoices, bills and payments are cancelled from those instead. */
+/** Cancel a manual, bank-booked or imported entry. Entries made by invoices, bills and payments are cancelled from those instead. */
 export async function cancelJournalVoucher(s: Scope, session: Session, entryId: string): Promise<void> {
   const [entry] = await s.tx
     .select({ status: journalEntries.status, sourceRef: journalEntries.sourceRef })
@@ -94,7 +94,7 @@ export async function cancelJournalVoucher(s: Scope, session: Session, entryId: 
     .for("update");
   if (!entry) throw new UserError("Entry not found");
   if (entry.status !== "posted") throw new UserError("Only posted entries can be cancelled");
-  if (!entry.sourceRef?.startsWith("manual") && !entry.sourceRef?.startsWith("bank:")) {
+  if (entry.sourceRef !== "manual" && entry.sourceRef !== "odoo" && !entry.sourceRef?.startsWith("bank:")) {
     throw new UserError("Cancel the invoice, bill or payment this entry came from instead");
   }
   await cancelEntry(s, entryId);

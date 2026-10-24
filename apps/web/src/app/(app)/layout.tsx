@@ -12,6 +12,8 @@ const NAV = [
   { href: "/journal", label: "Journal entries" },
   { href: "/reports", label: "Reports" },
   { href: "/gst", label: "GST returns" },
+  { href: "/projects", label: "Projects" },
+  { href: "/tasks", label: "My tasks" },
   { href: "/contacts", label: "Contacts" },
   { href: "/products", label: "Products & services" },
   { href: "/accounts", label: "Chart of accounts" },

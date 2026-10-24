@@ -36,7 +36,7 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
           journalEntries,
           gte(journalEntries.date, period.from),
           lte(journalEntries.date, period.to),
-          manualOnly ? sql`(${journalEntries.sourceRef} = 'manual' or ${journalEntries.sourceRef} like 'bank:%')` : undefined,
+          manualOnly ? sql`(${journalEntries.sourceRef} in ('manual', 'odoo') or ${journalEntries.sourceRef} like 'bank:%')` : undefined,
           params.q ? and(like(journalEntries.narration, `%${params.q}%`)) : undefined,
         ),
       )
@@ -59,7 +59,7 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
         <Input type="date" name="from" defaultValue={period.from} className="w-auto!" aria-label="From" />
         <Input type="date" name="to" defaultValue={period.to} className="w-auto!" aria-label="To" />
         <Select name="show" defaultValue={manualOnly ? "manual" : "all"} className="w-auto!">
-          <option value="manual">Manual and bank entries</option>
+          <option value="manual">Manual, bank and imported entries</option>
           <option value="all">All postings</option>
         </Select>
         <Button variant="secondary">Filter</Button>

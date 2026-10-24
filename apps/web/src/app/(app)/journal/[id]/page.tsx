@@ -37,7 +37,7 @@ export default async function JournalEntryPage({ params }: { params: Promise<{ i
   });
   if (!data) notFound();
   const { entry, lines, source } = data;
-  const manual = entry.sourceRef === "manual" || entry.sourceRef?.startsWith("bank:");
+  const manual = entry.sourceRef === "manual" || entry.sourceRef === "odoo" || entry.sourceRef?.startsWith("bank:");
   const canCancel = entry.status === "posted" && manual && (session.role === "admin" || session.role === "accountant");
   const total = lines.reduce((n, l) => n + l.line.debit, 0);
 
