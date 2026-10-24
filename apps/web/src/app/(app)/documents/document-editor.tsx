@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  autoHsn,
   computeDocument,
   formatINR,
   GST_RATES_BPS,
@@ -8,10 +9,12 @@ import {
   mulRound,
   rupeesToPaise,
   stateName,
+  suggestHsn,
   supplyType,
   type DocumentType,
 } from "@tevah/core";
 import { useActionState, useMemo, useState } from "react";
+import { HsnChips } from "@/components/hsn-suggest";
 import { Button, ButtonLink, Field, FormError, Input, Select, Textarea } from "@/components/ui";
 import { STATE_OPTIONS } from "@/lib/contacts";
 import { SIDES, sideOf, TYPE_LABEL } from "@/lib/doc-kinds";
@@ -70,6 +73,14 @@ export function DocumentEditor({
         originalDocumentId: "",
       };
     });
+  }
+
+  /** Description edits re-guess the HSN/SAC, unless the user picked a product or typed a code. */
+  function describe(line: LineState, description: string) {
+    const ours = line.hsnSac === "" || line.hsnSac === line.autoHsn;
+    if (line.productId || !ours) return setLine(line.key, { description });
+    const code = autoHsn(description, { history: data.products })?.code ?? "";
+    setLine(line.key, { description, hsnSac: code, autoHsn: code || undefined });
   }
 
   function chooseProduct(key: string, productId: string) {
@@ -223,7 +234,7 @@ export function DocumentEditor({
                     aria-label="Description"
                     placeholder="Description"
                     value={l.description}
-                    onChange={(e) => setLine(l.key, { description: e.target.value })}
+                    onChange={(e) => describe(l, e.target.value)}
                   />
                   {lineErr("description") && <p className="text-xs text-red-600">{lineErr("description")}</p>}
                 </div>
@@ -256,10 +267,22 @@ export function DocumentEditor({
                 </button>
               </div>
               <details className="text-xs text-stone-500">
-                <summary className="cursor-pointer select-none">HSN/SAC {l.hsnSac || "—"} · account</summary>
+                <summary className="cursor-pointer select-none">
+                  HSN/SAC {l.hsnSac || "—"}
+                  {l.hsnSac && l.hsnSac === l.autoHsn && <span className="text-brand-700"> (suggested from the description)</span>} · account
+                </summary>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   <Field label="HSN / SAC" error={lineErr("hsnSac")}>
                     <Input value={l.hsnSac} inputMode="numeric" maxLength={8} onChange={(e) => setLine(l.key, { hsnSac: e.target.value })} />
+                    {!l.productId && (
+                      <HsnChips
+                        suggestions={suggestHsn(l.description, { history: data.products })}
+                        value={l.hsnSac}
+                        auto={l.hsnSac !== "" && l.hsnSac === l.autoHsn}
+                        onPick={(code) => setLine(l.key, { hsnSac: code })}
+                        from="description"
+                      />
+                    )}
                   </Field>
                   <Field label="Account">
                     <Select value={l.accountId} onChange={(e) => setLine(l.key, { accountId: e.target.value })}>

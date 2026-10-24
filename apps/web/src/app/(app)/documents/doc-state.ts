@@ -4,6 +4,8 @@ export interface LineState {
   productId: string;
   description: string;
   hsnSac: string;
+  /** Code the editor filled in from the description; replaced as the description changes, until the user edits it. */
+  autoHsn?: string;
   quantity: string;
   unit: string;
   unitPrice: string;
