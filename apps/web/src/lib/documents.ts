@@ -79,7 +79,7 @@ export const documentInput = z.object({
   date: z.iso.date("Enter a date"),
   dueDate: z.iso.date().nullish(),
   placeOfSupply: z.string().refine(isStateCode, { message: "Choose the place of supply" }),
-  supplyType: z.enum(["intra", "inter"]),
+  supplyType: z.enum(["intra", "inter", "export"]),
   reverseCharge: z.boolean().default(false),
   vendorReference: z.string().trim().max(50).nullish(),
   originalDocumentId: z.uuid().nullish(),

@@ -66,6 +66,14 @@ export function gstr1Csv(r: Gstr1, section: string): { name: string; rows: (stri
           ),
         ],
       };
+    case "exp":
+      return {
+        name: "exp",
+        rows: [
+          ["Export Type", "Invoice Number", "Invoice date", "Invoice Value", "Port Code", "Shipping Bill Number", "Shipping Bill Date", "Rate", "Taxable Value", "Integrated Tax"],
+          ...r.exp.flatMap((i) => i.items.map((it) => ["WOPAY", i.number, portalDate(i.date), money(i.value), "", "", "", pct(it.rateBps), money(it.taxable), "0.00"])),
+        ],
+      };
     case "hsn":
       return {
         name: "hsn",

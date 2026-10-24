@@ -1,4 +1,5 @@
 import { sum, type Paise } from "./money";
+import type { SupplyType } from "./gst";
 
 /**
  * GST return summaries (GSTR-1 and GSTR-3B).
@@ -29,7 +30,7 @@ export interface GstDocument {
   gstin: string | null;
   contactName: string;
   placeOfSupply: string;
-  supplyType: "intra" | "inter";
+  supplyType: SupplyType;
   reverseCharge: boolean;
   total: Paise;
   lines: GstLine[];
@@ -86,7 +87,7 @@ export interface Gstr1Invoice {
 
 export interface B2csRow extends RateRow {
   placeOfSupply: string;
-  supplyType: "intra" | "inter";
+  supplyType: SupplyType;
 }
 
 export interface HsnRow extends TaxAmounts {
@@ -98,7 +99,7 @@ export interface HsnRow extends TaxAmounts {
 }
 
 export interface NilRow {
-  supplyType: "intra" | "inter";
+  supplyType: SupplyType;
   registered: boolean;
   nilRated: Paise;
 }
@@ -118,6 +119,10 @@ export interface Gstr1 {
   b2cs: B2csRow[];
   /** Credit notes issued to registered buyers. */
   cdnr: Gstr1Invoice[];
+  /** 6A Exports under LUT, without payment of IGST. */
+  exp: Gstr1Invoice[];
+  /** 9B Credit notes to unregistered buyers: here, those against exports. */
+  cdnur: Gstr1Invoice[];
   hsnB2b: HsnRow[];
   hsnB2c: HsnRow[];
   nil: NilRow[];
@@ -141,6 +146,8 @@ export function buildGstr1(docs: readonly GstDocument[]): Gstr1 {
   const b2b: Gstr1Invoice[] = [];
   const b2cl: Gstr1Invoice[] = [];
   const cdnr: Gstr1Invoice[] = [];
+  const exp: Gstr1Invoice[] = [];
+  const cdnur: Gstr1Invoice[] = [];
   const b2cs = new Map<string, B2csRow>();
   const hsn = { b2b: new Map<string, HsnRow>(), b2c: new Map<string, HsnRow>() };
   const nil = new Map<string, NilRow>();
@@ -161,7 +168,8 @@ export function buildGstr1(docs: readonly GstDocument[]): Gstr1 {
       items,
     };
     if (items.length) {
-      if (d.type === "credit_note" && registered) cdnr.push(row);
+      if (d.supplyType === "export") (d.type === "invoice" ? exp : cdnur).push(row);
+      else if (d.type === "credit_note" && registered) cdnr.push(row);
       else if (d.type === "invoice" && registered) b2b.push(row);
       else if (d.type === "invoice" && d.supplyType === "inter" && d.total > B2CL_THRESHOLD) b2cl.push(row);
       else {
@@ -176,7 +184,7 @@ export function buildGstr1(docs: readonly GstDocument[]): Gstr1 {
     }
     for (const l of d.lines) {
       add(totals, taxOf(l), sign);
-      if (l.gstRateBps === 0) {
+      if (l.gstRateBps === 0 && d.supplyType !== "export") {
         const key = `${d.supplyType}|${registered}`;
         const agg = nil.get(key) ?? { supplyType: d.supplyType, registered, nilRated: 0 };
         agg.nilRated += sign * l.taxable;
@@ -200,6 +208,8 @@ export function buildGstr1(docs: readonly GstDocument[]): Gstr1 {
     b2cl: b2cl.sort(byNumber),
     b2cs: [...b2cs.values()].sort((a, b) => a.placeOfSupply.localeCompare(b.placeOfSupply) || a.rateBps - b.rateBps),
     cdnr: cdnr.sort(byNumber),
+    exp: exp.sort(byNumber),
+    cdnur: cdnur.sort(byNumber),
     hsnB2b: hsnRows(hsn.b2b),
     hsnB2c: hsnRows(hsn.b2c),
     nil: [...nil.values()],
@@ -233,6 +243,8 @@ export function documentSeries(docs: readonly GstDocument[]): DocumentSeries[] {
 export interface Gstr3b {
   /** 3.1(a) Outward taxable supplies (other than zero rated, nil and exempt). */
   outwardTaxable: TaxAmounts;
+  /** 3.1(b) Outward zero-rated supplies: exports under LUT. */
+  outwardZeroRated: Paise;
   /** 3.1(c) Other outward supplies: nil rated and exempt. */
   outwardNil: Paise;
   /** 3.1(d) Inward supplies liable to reverse charge. */
@@ -257,6 +269,7 @@ export function buildGstr3b(docs: readonly GstDocument[]): Gstr3b {
   const inwardReverseCharge = zero();
   const itcOther = zero();
   let outwardNil = 0;
+  let outwardZeroRated = 0;
   const unregistered = new Map<string, { placeOfSupply: string; taxable: Paise; igst: Paise }>();
 
   for (const d of docs) {
@@ -266,7 +279,8 @@ export function buildGstr3b(docs: readonly GstDocument[]): Gstr3b {
     for (const l of d.lines) {
       const tax = taxOf(l);
       if (sales) {
-        if (l.gstRateBps === 0) outwardNil += sign * l.taxable;
+        if (d.supplyType === "export") outwardZeroRated += sign * l.taxable;
+        else if (l.gstRateBps === 0) outwardNil += sign * l.taxable;
         else add(outwardTaxable, tax, sign);
         if (!d.gstin && d.supplyType === "inter" && l.gstRateBps > 0) {
           const row = unregistered.get(d.placeOfSupply) ?? { placeOfSupply: d.placeOfSupply, taxable: 0, igst: 0 };
@@ -288,6 +302,7 @@ export function buildGstr3b(docs: readonly GstDocument[]): Gstr3b {
   const netPayable = add(add(zero(), liability), itcNet, -1);
   return {
     outwardTaxable,
+    outwardZeroRated,
     outwardNil,
     inwardReverseCharge,
     interStateUnregistered: [...unregistered.values()].sort((a, b) => a.placeOfSupply.localeCompare(b.placeOfSupply)),
@@ -379,6 +394,27 @@ export function gstr1Json(gstin: string, period: string, r: Gstr1) {
         inv_typ: "R",
         itms: itemsJson(n.items),
       })),
+    })),
+    exp: r.exp.length
+      ? [
+          {
+            exp_typ: "WOPAY",
+            inv: r.exp.map((i) => ({
+              inum: i.number,
+              idt: portalDate(i.date),
+              val: rupees(i.value),
+              itms: i.items.map((it) => ({ txval: rupees(it.taxable), rt: percent(it.rateBps), iamt: 0, csamt: 0 })),
+            })),
+          },
+        ]
+      : [],
+    cdnur: r.cdnur.map((n) => ({
+      typ: "EXPWOP",
+      ntty: "C",
+      nt_num: n.number,
+      nt_dt: portalDate(n.date),
+      val: rupees(n.value),
+      itms: itemsJson(n.items),
     })),
     hsn: { hsn_b2b: hsnJson(r.hsnB2b), hsn_b2c: hsnJson(r.hsnB2c) },
     nil: { inv: r.nil.map((n) => ({ sply_ty: nilKind(n), nil_amt: rupees(n.nilRated), expt_amt: 0, ngsup_amt: 0 })) },

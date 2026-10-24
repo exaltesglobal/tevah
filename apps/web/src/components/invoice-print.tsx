@@ -1,4 +1,4 @@
-import { amountInWords, formatINR, stateName, type DocumentType } from "@tevah/core";
+import { amountInWords, formatINR, stateName, type DocumentType, type SupplyType } from "@tevah/core";
 import type { CSSProperties, ReactNode } from "react";
 import type { InvoiceDesign } from "@/lib/invoice-design";
 import { formatRate } from "@/lib/products";
@@ -22,6 +22,8 @@ export interface PrintParty {
   stateCode: string | null;
   email: string | null;
   phone: string | null;
+  /** Seller's LUT ARN, printed on zero-rated export invoices. */
+  lut?: string | null;
 }
 
 export interface PrintDoc {
@@ -31,7 +33,7 @@ export interface PrintDoc {
   dueDate: string | null;
   vendorReference: string | null;
   placeOfSupply: string;
-  supplyType: "intra" | "inter";
+  supplyType: SupplyType;
   reverseCharge: boolean;
   taxable: number;
   cgst: number;
@@ -111,8 +113,10 @@ export function InvoicePrint({
         against.number
       ),
     ]);
+  const exported = doc.supplyType === "export";
   meta.push(["Place of supply", `${stateName(doc.placeOfSupply)} (${doc.placeOfSupply})`]);
   meta.push(["Reverse charge", doc.reverseCharge ? "Yes" : "No"]);
+  if (exported && seller.lut) meta.push(["LUT ARN", <span className="font-mono">{seller.lut}</span>]);
 
   const metaList = (
     <dl className={cx("grid grid-cols-[auto_auto] gap-x-4 gap-y-0.5 text-sm", !boxed && "justify-end")}>
@@ -273,10 +277,13 @@ export function InvoicePrint({
               <Total label="SGST" value={doc.sgst} />
             </>
           ) : (
-            <Total label="IGST" value={doc.igst} />
+            <Total label={exported ? "IGST (zero-rated)" : "IGST"} value={doc.igst} />
           )}
           {doc.roundOff !== 0 && <Total label="Round off" value={doc.roundOff} />}
           <Total label="Total" value={doc.total} strong accent={modern} />
+          {exported && (
+            <dd className="pt-1 text-xs text-stone-600">Supply meant for export under LUT without payment of integrated tax.</dd>
+          )}
           {doc.tdsAmount > 0 && (
             <>
               <Total label={`TDS ${doc.tdsSection ?? ""} @ ${doc.tdsRateBps / 100}%`} value={-doc.tdsAmount} />

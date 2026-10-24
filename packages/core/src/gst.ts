@@ -7,10 +7,14 @@ import { assertPaise, mulRound, sum, type Paise } from "./money";
  */
 export const GST_RATES_BPS = [0, 25, 150, 300, 500, 1200, 1800, 2800, 4000] as const;
 
-export type SupplyType = "intra" | "inter";
+/** Export: zero-rated supply to a customer outside India under a LUT, so no GST is charged. */
+export type SupplyType = "intra" | "inter" | "export";
+/** Place of supply code for a customer outside India. */
+export const FOREIGN_POS = "96";
 
-/** Same state for supplier and place of supply means CGST+SGST, otherwise IGST. */
+/** Same state for supplier and place of supply means CGST+SGST, otherwise IGST; outside India is an export. */
 export function supplyType(supplierState: string, placeOfSupply: string | null | undefined): SupplyType {
+  if (placeOfSupply === FOREIGN_POS) return "export";
   return !placeOfSupply || placeOfSupply === supplierState ? "intra" : "inter";
 }
 
@@ -53,9 +57,10 @@ export function computeLine(line: LineInput, type: SupplyType): LineTax {
     // Each half is rounded on its own so CGST always equals SGST.
     cgst = mulRound(taxable, line.gstRateBps, 20000);
     sgst = cgst;
-  } else {
+  } else if (type === "inter") {
     igst = mulRound(taxable, line.gstRateBps, 10000);
   }
+  // An export under LUT keeps its rate for the return but carries no tax.
   return { taxable, cgst, sgst, igst, total: taxable + cgst + sgst + igst };
 }
 

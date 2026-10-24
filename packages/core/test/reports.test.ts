@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { computeDocument, supplyType } from "../src/gst";
 import {
   ageing,
   balanceSheet,
@@ -248,5 +249,37 @@ describe("bank statements", () => {
     ];
     expect(matchCandidates(row, ledger).map((c) => c.lineId)).toEqual(["close"]);
     expect(matchCandidates(row, ledger, 30).map((c) => c.lineId)).toEqual(["close", "far"]);
+  });
+});
+
+describe("exports under LUT", () => {
+  const line = { hsnSac: "998315", description: "Hosting", unit: "NOS", quantityMilli: 1000, gstRateBps: 1800, taxable: 100000, cgst: 0, sgst: 0, igst: 0 };
+  const base = { status: "posted" as const, gstin: null, contactName: "Acme Inc", placeOfSupply: "96", supplyType: "export" as const, reverseCharge: false, total: 100000, lines: [line] };
+  const docs = [
+    { ...base, type: "invoice" as const, number: "INV/26-27/0001", date: "2026-10-05" },
+    { ...base, type: "credit_note" as const, number: "CN/26-27/0001", date: "2026-10-20", total: 20000, lines: [{ ...line, taxable: 20000 }] },
+  ];
+
+  it("carry no tax", () => {
+    const t = computeDocument([{ quantity: 1, unitPrice: 100000, gstRateBps: 1800 }], { type: "export", reverseCharge: false });
+    expect(t).toMatchObject({ taxable: 100000, cgst: 0, sgst: 0, igst: 0, total: 100000 });
+    expect(supplyType("27", "96")).toBe("export");
+  });
+
+  it("go to GSTR-1 table 6A and 9B, not B2C, and to GSTR-3B 3.1(b)", () => {
+    const r = buildGstr1(docs);
+    expect(r.exp.map((i) => i.number)).toEqual(["INV/26-27/0001"]);
+    expect(r.cdnur.map((i) => i.number)).toEqual(["CN/26-27/0001"]);
+    expect(r.b2cs).toEqual([]);
+    expect(r.b2cl).toEqual([]);
+    expect(r.nil).toEqual([]);
+    expect(r.totals).toMatchObject({ taxable: 80000, igst: 0, cgst: 0, sgst: 0 });
+    const json = gstr1Json("27AAJCE3276G1ZH", "102026", r);
+    expect(json.exp).toEqual([{ exp_typ: "WOPAY", inv: [{ inum: "INV/26-27/0001", idt: "05-10-2026", val: 1000, itms: [{ txval: 1000, rt: 18, iamt: 0, csamt: 0 }] }] }]);
+    expect(json.cdnur[0]).toMatchObject({ typ: "EXPWOP", nt_num: "CN/26-27/0001" });
+    const b = buildGstr3b(docs);
+    expect(b.outwardZeroRated).toBe(80000);
+    expect(b.outwardTaxable.taxable).toBe(0);
+    expect(b.outwardNil).toBe(0);
   });
 });

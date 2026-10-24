@@ -42,6 +42,9 @@ export function CompanyForm({ org }: { org: typeof orgs.$inferSelect }) {
         <Field label="TAN" error={err("tan")} hint="For TDS you deduct">
           <Input name="tan" className="uppercase" maxLength={10} defaultValue={v("tan", org.tan)} />
         </Field>
+        <Field label="LUT number" error={err("lut")} hint="Letter of Undertaking ARN, printed on export invoices">
+          <Input name="lut" className="uppercase" maxLength={30} defaultValue={v("lut", org.lut)} />
+        </Field>
       </div>
       <div className="flex justify-end">
         <Button disabled={pending}>Save</Button>

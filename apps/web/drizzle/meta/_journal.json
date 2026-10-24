@@ -43,6 +43,13 @@
       "when": 1792837950360,
       "tag": "0005_invoice_designs",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1792838739141,
+      "tag": "0006_connected_apps_exports",
+      "breakpoints": true
     }
   ]
 }
