@@ -1,8 +1,14 @@
-import { asc, eq, inArray } from "drizzle-orm";
+import { asc, eq, inArray, isNotNull } from "drizzle-orm";
 import type { Scope } from "@/db";
-import { accounts } from "@/db/schema";
+import { accounts, products } from "@/db/schema";
 
-export async function accountOptions(s: Scope) {
+/** Pickers for the product form, plus the codes already given to other items for HSN suggestions. */
+export async function productFormOptions(s: Scope) {
+  const hsnHistory = await s.tx
+    .select({ name: products.name, hsnSac: products.hsnSac })
+    .from(products)
+    .where(s.own(products, isNotNull(products.hsnSac)))
+    .limit(2000);
   const rows = await s.tx
     .select({ id: accounts.id, code: accounts.code, name: accounts.name, type: accounts.type })
     .from(accounts)
@@ -11,5 +17,6 @@ export async function accountOptions(s: Scope) {
   return {
     incomeAccounts: rows.filter((a) => a.type === "income"),
     expenseAccounts: rows.filter((a) => a.type !== "income"),
+    hsnHistory,
   };
 }

@@ -11,3 +11,4 @@ export * from "./gstr";
 export * from "./bank";
 export * from "./projects";
 export * from "./odoo";
+export * from "./hsn";

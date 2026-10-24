@@ -4,7 +4,7 @@ import { Badge, Button, Card, PageHeader } from "@/components/ui";
 import { withOrg } from "@/db";
 import { products } from "@/db/schema";
 import { requireSession } from "@/lib/auth";
-import { accountOptions } from "../account-options";
+import { productFormOptions } from "../account-options";
 import { setProductArchived } from "../actions";
 import { ProductForm } from "../product-form";
 
@@ -14,7 +14,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const data = await withOrg(session.orgId, async (s) => {
     const [product] = await s.tx.select().from(products).where(s.own(products, eq(products.id, id)));
-    return product ? { product, ...(await accountOptions(s)) } : null;
+    return product ? { product, ...(await productFormOptions(s)) } : null;
   });
   if (!data) notFound();
   const { product } = data;

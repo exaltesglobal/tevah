@@ -1,7 +1,8 @@
 "use client";
 
 import { GST_RATES_BPS } from "@tevah/core";
-import { useActionState } from "react";
+import { useActionState, useMemo, useState } from "react";
+import { HsnChips, useAutoHsn, type HsnHistory } from "@/components/hsn-suggest";
 import { Button, ButtonLink, Field, FormError, Input, Select } from "@/components/ui";
 import type { products } from "@/db/schema";
 import { emptyForm } from "@/lib/form";
@@ -21,30 +22,40 @@ export function ProductForm({
   product,
   incomeAccounts,
   expenseAccounts,
+  hsnHistory,
 }: {
   product?: Product;
   incomeAccounts: AccountOption[];
   expenseAccounts: AccountOption[];
+  hsnHistory: HsnHistory;
 }) {
   const [state, action, pending] = useActionState(saveProduct.bind(null, product?.id ?? null), emptyForm);
   const err = (k: string) => state.fieldErrors?.[k];
   const v = (k: string, fallback: string | undefined) => state.values?.[k] ?? fallback;
+  const [name, setName] = useState(v("name", product?.name) ?? "");
+  const [type, setType] = useState<"service" | "goods">((v("type", product?.type) as "service" | "goods") ?? "service");
+  const [hsn, setHsn] = useState(v("hsnSac", product?.hsnSac ?? "") ?? "");
+  const history = useMemo(() => hsnHistory.filter((h) => h.name !== product?.name), [hsnHistory, product?.name]);
+  const { suggestions, auto } = useAutoHsn({ name, kind: type, history, value: hsn, setValue: setHsn });
   return (
     <form action={action} className="space-y-6">
       <FormError message={state.error} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Name" error={err("name")} className="sm:col-span-2">
-          <Input name="name" defaultValue={v("name", product?.name)} required />
+          <Input name="name" value={name} onChange={(e) => setName(e.target.value)} required />
         </Field>
         <Field label="Type" error={err("type")}>
-          <Select name="type" defaultValue={v("type", product?.type ?? "service")}>
+          <Select name="type" value={type} onChange={(e) => setType(e.target.value as "service" | "goods")}>
             <option value="service">Service</option>
             <option value="goods">Goods</option>
           </Select>
         </Field>
-        <Field label="HSN / SAC code" error={err("hsnSac")} hint="SAC for services usually starts with 99">
-          <Input name="hsnSac" inputMode="numeric" defaultValue={v("hsnSac", product?.hsnSac ?? "")} maxLength={8} />
-        </Field>
+        <div>
+          <Field label="HSN / SAC code" error={err("hsnSac")} hint={suggestions.length ? undefined : "Type the name and Tevah suggests a code"}>
+            <Input name="hsnSac" inputMode="numeric" value={hsn} onChange={(e) => setHsn(e.target.value.replace(/\D/g, ""))} maxLength={8} />
+          </Field>
+          <HsnChips suggestions={suggestions} value={hsn} auto={auto} onPick={setHsn} />
+        </div>
         <Field label="Sale price (₹, before GST)" error={err("salePrice")}>
           <Input name="salePrice" inputMode="decimal" defaultValue={v("salePrice", rupees(product?.salePrice))} />
         </Field>
