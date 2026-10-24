@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+export function NavLink({ href, siblings = [], children }: { href: string; siblings?: string[]; children: React.ReactNode }) {
   const path = usePathname();
-  const active = href === "/" ? path === "/" : path.startsWith(href);
+  const matches = (h: string) => (h === "/" ? path === "/" : path === h || path.startsWith(`${h}/`));
+  // The most specific match wins, so /settings/invoice-design doesn't also light up /settings.
+  const active = matches(href) && !siblings.some((o) => o.length > href.length && o.startsWith(href) && matches(o));
   return (
     <Link
       href={href}

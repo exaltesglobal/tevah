@@ -7,6 +7,7 @@ import {
   index,
   int,
   json,
+  mediumtext,
   mysqlEnum,
   mysqlTable,
   primaryKey,
@@ -15,6 +16,7 @@ import {
   uniqueIndex,
   varchar,
 } from "drizzle-orm/mysql-core";
+import { INVOICE_TEMPLATES } from "../lib/invoice-design";
 
 /**
  * MySQL/MariaDB schema (Hostinger's database).
@@ -528,4 +530,36 @@ export const timeEntries = mysqlTable(
     index("time_entries_org_user_date_idx").on(t.orgId, t.userId, t.date),
     uniqueIndex("time_entries_org_external_ref_key").on(t.orgId, t.externalRef),
   ],
+);
+
+// ---------------------------------------------------------------------------
+// Invoice designer: how printed sales documents look
+
+export const invoiceDesigns = mysqlTable(
+  "invoice_designs",
+  {
+    id: id(),
+    orgId: orgId(),
+    template: mysqlEnum("template", INVOICE_TEMPLATES).notNull().default("classic"),
+    /** Hex colour for headings and rules, e.g. #A3142B. */
+    accentColor: varchar("accent_color", { length: 7 }).notNull().default("#A3142B"),
+    /** PNG/JPEG/SVG data URL, resized in the browser before upload. */
+    logo: mediumtext("logo"),
+    signature: mediumtext("signature"),
+    showHsn: boolean("show_hsn").notNull().default(true),
+    showDiscount: boolean("show_discount").notNull().default(true),
+    showAmountInWords: boolean("show_amount_in_words").notNull().default(true),
+    showUpiQr: boolean("show_upi_qr").notNull().default(true),
+    bankName: varchar("bank_name", { length: 100 }),
+    bankAccountName: varchar("bank_account_name", { length: 200 }),
+    bankAccountNumber: varchar("bank_account_number", { length: 30 }),
+    bankIfsc: varchar("bank_ifsc", { length: 11 }),
+    bankBranch: varchar("bank_branch", { length: 100 }),
+    upiId: varchar("upi_id", { length: 100 }),
+    terms: text("terms"),
+    footer: varchar("footer", { length: 300 }),
+    signatoryLabel: varchar("signatory_label", { length: 100 }),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("invoice_designs_org_key").on(t.orgId)],
 );

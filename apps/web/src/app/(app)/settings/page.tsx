@@ -17,11 +17,16 @@ export default async function SettingsPage() {
         title="Company details"
         subtitle={`GSTIN ${org!.gstin ?? "not registered"} · ${stateName(org!.stateCode)} · PAN ${org!.pan ?? "—"}`}
         actions={
-          session.role === "admin" && (
-            <ButtonLink href="/settings/import" variant="secondary">
-              Import from Odoo
+          <>
+            <ButtonLink href="/settings/invoice-design" variant="secondary">
+              Invoice design
             </ButtonLink>
-          )
+            {session.role === "admin" && (
+              <ButtonLink href="/settings/import" variant="secondary">
+                Import from Odoo
+              </ButtonLink>
+            )}
+          </>
         }
       />
       <Card>

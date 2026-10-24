@@ -36,6 +36,13 @@
       "when": 1792699016278,
       "tag": "0004_odoo_import",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1792837950360,
+      "tag": "0005_invoice_designs",
+      "breakpoints": true
     }
   ]
 }
