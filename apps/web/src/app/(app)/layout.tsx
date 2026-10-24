@@ -17,6 +17,7 @@ const NAV = [
   { href: "/contacts", label: "Contacts" },
   { href: "/products", label: "Products & services" },
   { href: "/accounts", label: "Chart of accounts" },
+  { href: "/settings/invoice-design", label: "Invoice design" },
   { href: "/settings", label: "Company" },
 ];
 
@@ -41,7 +42,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
         <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:pb-0">
           {NAV.map((item) => (
-            <NavLink key={item.href} href={item.href}>
+            <NavLink key={item.href} href={item.href} siblings={NAV.map((n) => n.href)}>
               {item.label}
             </NavLink>
           ))}
