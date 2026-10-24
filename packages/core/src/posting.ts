@@ -71,19 +71,29 @@ export function postVendorBill(p: VendorBillPosting): EntryLine[] {
   return finish(lines);
 }
 
+/** A debit note (goods/services returned to a vendor) is the vendor bill posting reversed. */
+export function postDebitNote(p: VendorBillPosting): EntryLine[] {
+  return finish(postVendorBill(p).map((l) => ({ ...l, debit: l.credit, credit: l.debit })));
+}
+
 export interface PaymentPosting {
   amount: Paise;
   contactId: string;
   /** Bank or cash account the money moved through. */
   moneyAccountId: string;
   accounts: SystemAccounts;
+  /** TDS the customer deducted before paying; it settles the receivable too. */
+  tds?: Paise;
 }
 
-/** Customer receipt: Dr Bank / Cr Receivable. */
+/** Customer receipt: Dr Bank / Dr TDS receivable / Cr Receivable. */
 export function postCustomerReceipt(p: PaymentPosting): EntryLine[] {
+  const tds = p.tds ?? 0;
+  if (tds < 0) throw new Error("TDS can't be negative");
   return finish([
     { accountId: p.moneyAccountId, debit: p.amount, credit: 0 },
-    { accountId: p.accounts.receivable, debit: 0, credit: p.amount, contactId: p.contactId },
+    { accountId: p.accounts.tds_receivable, debit: tds, credit: 0, contactId: p.contactId },
+    { accountId: p.accounts.receivable, debit: 0, credit: p.amount + tds, contactId: p.contactId },
   ]);
 }
 

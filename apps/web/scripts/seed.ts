@@ -7,9 +7,7 @@ import { createOrg } from "../src/lib/org-setup";
 const url = process.env.DATABASE_URL;
 const email = process.env.SEED_ADMIN_EMAIL;
 const password = process.env.SEED_ADMIN_PASSWORD;
-if (!url || !email || !password) {
-  throw new Error("Set DATABASE_URL, SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD");
-}
+if (!url) throw new Error("Set DATABASE_URL");
 
 const { db, pool } = connect(url, 1);
 try {
@@ -18,6 +16,8 @@ try {
   if (existing) {
     console.log(`Exaltes Global already exists (${existing.id})`);
   } else {
+    // Only needed for the first run, so deploys can drop the password afterwards.
+    if (!email || !password) throw new Error("Set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD for the first run");
     const { orgId } = await createOrg(
       db,
       { name: "Exaltes Global", legalName: "Exaltes Global Private Limited", gstin, tan: "PNEE11205F" },

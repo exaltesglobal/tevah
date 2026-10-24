@@ -5,10 +5,10 @@ import { eq, getTableName, is } from "drizzle-orm";
 import { MySqlTable } from "drizzle-orm/mysql-core";
 import type mysql from "mysql2/promise";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { connect, withOrg, type Db } from "@/db";
+import { withOrg, type Db } from "@/db";
 import * as schema from "@/db/schema";
 import { createOrg } from "@/lib/org-setup";
-import { runMigrations } from "../scripts/migrate";
+import { freshDatabase } from "./db";
 
 /** Tables holding one org's data: they have org_id and aren't the tenancy tables themselves. */
 const TENANT_TABLES = Object.entries(schema)
@@ -67,12 +67,7 @@ describe.skipIf(!url)("tenant isolation against MySQL", () => {
   let bContactId: string;
 
   beforeAll(async () => {
-    ({ db, pool } = connect(url!, 2));
-    const [tables] = await pool.query<mysql.RowDataPacket[]>("show tables");
-    await pool.query("set foreign_key_checks = 0");
-    for (const t of tables) await pool.query(`drop table \`${Object.values(t)[0]}\``);
-    await pool.query("set foreign_key_checks = 1");
-    await runMigrations(url!);
+    ({ db, pool } = await freshDatabase(url!));
 
     const pw = "test-password-123";
     orgA = (await createOrg(db, { name: "A", gstin: "27AAJCE3276G1ZH" }, { email: "a@test.in", name: "A", password: pw })).orgId;

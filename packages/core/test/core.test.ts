@@ -7,6 +7,8 @@ import {
   gstinCheckChar,
   INDIA_COA,
   isValidPan,
+  postCustomerReceipt,
+  postDebitNote,
   postSalesInvoice,
   postVendorBill,
   rupeesToPaise,
@@ -126,6 +128,19 @@ describe("posting", () => {
     const lines = postVendorBill({ totals, lineAccountIds: ["purchases"], vendorId: "v1", accounts, reverseCharge: true });
     expect(lines.find((l) => l.accountId === "rcm_cgst_payable")?.credit).toBe(9000);
     expect(lines.find((l) => l.accountId === "payable")?.credit).toBe(100000);
+  });
+
+  it("posts a customer receipt net of TDS", () => {
+    const lines = postCustomerReceipt({ amount: 90000, tds: 10000, contactId: "c1", moneyAccountId: "bank", accounts });
+    expect(lines.find((l) => l.accountId === "receivable")?.credit).toBe(100000);
+    expect(lines.find((l) => l.accountId === "tds_receivable")?.debit).toBe(10000);
+  });
+
+  it("reverses a bill into a debit note", () => {
+    const totals = computeDocument([{ quantity: 1, unitPrice: 100000, gstRateBps: 1800 }], { type: "intra" });
+    const lines = postDebitNote({ totals, lineAccountIds: ["purchases"], vendorId: "v1", accounts });
+    expect(lines.find((l) => l.accountId === "payable")?.debit).toBe(118000);
+    expect(lines.find((l) => l.accountId === "input_cgst")?.credit).toBe(9000);
   });
 
   it("rejects unbalanced entries", () => {

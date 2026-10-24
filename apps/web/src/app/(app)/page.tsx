@@ -1,9 +1,9 @@
-import { stateName } from "@tevah/core";
-import { eq, sql } from "drizzle-orm";
+import { formatINR, stateName } from "@tevah/core";
+import { and, eq, sql } from "drizzle-orm";
 import Link from "next/link";
 import { Card, PageHeader } from "@/components/ui";
 import { getDb, withOrg } from "@/db";
-import { contacts, orgs, products } from "@/db/schema";
+import { contacts, documents, orgs, products } from "@/db/schema";
 import { requireSession } from "@/lib/auth";
 
 export default async function Dashboard() {
@@ -21,9 +21,25 @@ export default async function Dashboard() {
       .select({ n: sql<number>`count(*)`.mapWith(Number) })
       .from(products)
       .where(s.own(products, eq(products.archived, false)));
-    return { customers: c?.customers ?? 0, vendors: c?.vendors ?? 0, products: p?.n ?? 0 };
+    const due = (type: "invoice" | "bill") =>
+      s.tx
+        .select({ n: sql<string>`coalesce(sum(${documents.total} - ${documents.tdsAmount} - ${documents.amountPaid}), 0)` })
+        .from(documents)
+        .where(s.own(documents, and(eq(documents.type, type), eq(documents.status, "posted"))))
+        .then(([r]) => Number(r?.n ?? 0));
+    return {
+      customers: c?.customers ?? 0,
+      vendors: c?.vendors ?? 0,
+      products: p?.n ?? 0,
+      receivable: await due("invoice"),
+      payable: await due("bill"),
+    };
   });
 
+  const money = [
+    { label: "To receive", value: counts.receivable, href: "/sales?status=due" },
+    { label: "To pay", value: counts.payable, href: "/purchases?status=due" },
+  ];
   const stats = [
     { label: "Customers", value: counts.customers, href: "/contacts?kind=customer" },
     { label: "Vendors", value: counts.vendors, href: "/contacts?kind=vendor" },
@@ -33,6 +49,16 @@ export default async function Dashboard() {
   return (
     <>
       <PageHeader title={`Welcome, ${session.userName.split(" ")[0]}`} subtitle={org?.legalName} />
+      <div className="mb-4 grid gap-4 sm:grid-cols-2">
+        {money.map((m) => (
+          <Link key={m.label} href={m.href}>
+            <Card className="transition hover:border-brand-500">
+              <div className="text-sm text-stone-500">{m.label}</div>
+              <div className="mt-1 text-3xl font-semibold tabular-nums">{formatINR(m.value, { symbol: true })}</div>
+            </Card>
+          </Link>
+        ))}
+      </div>
       <div className="grid gap-4 sm:grid-cols-3">
         {stats.map((s) => (
           <Link key={s.label} href={s.href}>

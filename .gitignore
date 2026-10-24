@@ -9,3 +9,6 @@ coverage
 # Never commit exported business data
 data/
 exports/
+
+# Written by `next dev`
+apps/web/AGENTS.md
