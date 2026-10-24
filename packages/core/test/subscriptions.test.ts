@@ -57,7 +57,7 @@ describe("parseRazorpayWebhook", () => {
         payment: { entity: payment({ notes: [], description: null, customer_id: null }) },
       },
     });
-    if (r.kind !== "payment") throw new Error(r.reason);
+    if (r.kind !== "payment") throw new Error(`expected a payment, got ${r.kind}`);
     expect(r.event.plan).toBe("Pro monthly");
     expect(r.event.period).toEqual({ from: "2026-10-24", to: "2026-11-24" });
     expect(r.event.customer).toEqual({
