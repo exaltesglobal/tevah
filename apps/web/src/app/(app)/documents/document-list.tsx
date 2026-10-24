@@ -7,6 +7,7 @@ import { contacts, documents } from "@/db/schema";
 import { requireSession } from "@/lib/auth";
 import { SIDES, TYPE_LABEL, type Side } from "@/lib/doc-kinds";
 import { outstanding } from "@/lib/documents";
+import { fmtDate, today } from "../reports/period";
 
 export type ListParams = Promise<{ q?: string; type?: string; status?: string }>;
 
@@ -86,14 +87,14 @@ export async function DocumentList({ side, searchParams }: { side: Side; searchP
         empty={rows.length === 0 && <EmptyState>Nothing here yet.</EmptyState>}
       >
         {rows.map(({ doc, contactName }) => (
-          <tr key={doc.id} className="hover:bg-stone-50">
+          <tr key={doc.id}>
             <td>
               <Link href={`/${side}/${doc.id}`} className="font-medium text-brand-700 hover:underline">
                 {doc.number ?? "Draft"}
               </Link>
               {doc.type !== config.types[0] && <span className="ml-2 text-xs text-stone-500">{TYPE_LABEL[doc.type]}</span>}
             </td>
-            <td className="tabular-nums">{doc.date}</td>
+            <td className="tabular-nums">{fmtDate(doc.date)}</td>
             <td>{contactName}</td>
             <td className="text-right tabular-nums">{formatINR(doc.total)}</td>
             <td className="text-right tabular-nums">{doc.status === "posted" ? formatINR(outstanding(doc)) : "—"}</td>
@@ -108,11 +109,12 @@ export async function DocumentList({ side, searchParams }: { side: Side; searchP
 }
 
 export function StatusBadge({ doc }: { doc: typeof documents.$inferSelect }) {
-  if (doc.status !== "posted") return <Badge tone={doc.status === "draft" ? "amber" : "stone"}>{doc.status === "draft" ? "Draft" : "Cancelled"}</Badge>;
+  if (doc.status !== "posted") return <Badge tone="stone">{doc.status === "draft" ? "Draft" : "Cancelled"}</Badge>;
   const isNote = doc.type === "credit_note" || doc.type === "debit_note";
   const paid = paymentStatus(doc.total - doc.tdsAmount, doc.amountPaid);
   const label = isNote
     ? { unpaid: "Unapplied", partial: "Part applied", paid: "Applied" }[paid]
     : { unpaid: "Unpaid", partial: "Part paid", paid: "Paid" }[paid];
+  if (!isNote && paid !== "paid" && doc.dueDate && doc.dueDate < today()) return <Badge tone="red">Overdue</Badge>;
   return <Badge tone={paid === "paid" ? "green" : "amber"}>{label}</Badge>;
 }
