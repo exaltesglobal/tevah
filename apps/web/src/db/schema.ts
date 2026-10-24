@@ -64,6 +64,8 @@ export const orgs = mysqlTable("orgs", {
   phone: varchar("phone", { length: 30 }),
   /** First month of the financial year, 4 = April. */
   fyStartMonth: int("fy_start_month").notNull().default(4),
+  /** Letter of Undertaking ARN, printed on export invoices made without payment of IGST. */
+  lut: varchar("lut", { length: 30 }),
   createdAt: createdAt(),
 });
 
@@ -290,7 +292,7 @@ export const documents = mysqlTable(
     /** GST state code of the place of supply. */
     placeOfSupply: varchar("place_of_supply", { length: 2 }).notNull(),
     /** CGST+SGST (intra-state) or IGST (inter-state); defaulted from the states, editable. */
-    supplyType: mysqlEnum("supply_type", ["intra", "inter"]).notNull(),
+    supplyType: mysqlEnum("supply_type", ["intra", "inter", "export"]).notNull(),
     reverseCharge: boolean("reverse_charge").notNull().default(false),
     /** Invoice a credit note corrects, or bill a debit note corrects. */
     originalDocumentId: uuidCol("original_document_id"),
@@ -309,6 +311,8 @@ export const documents = mysqlTable(
     notes: text("notes"),
     journalEntryId: uuidCol("journal_entry_id").references(() => journalEntries.id),
     externalRef: varchar("external_ref", { length: 100 }),
+    /** Secret part of the customer's view link (/invoice/<org>/<token>); null until shared. */
+    shareToken: varchar("share_token", { length: 64 }),
     createdBy: uuidCol("created_by").references(() => users.id),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -319,6 +323,7 @@ export const documents = mysqlTable(
     index("documents_org_contact_idx").on(t.orgId, t.contactId),
     uniqueIndex("documents_org_type_number_key").on(t.orgId, t.type, t.number),
     uniqueIndex("documents_org_external_ref_key").on(t.orgId, t.externalRef),
+    uniqueIndex("documents_org_share_token_key").on(t.orgId, t.shareToken),
   ],
 );
 
@@ -562,4 +567,71 @@ export const invoiceDesigns = mysqlTable(
     updatedAt: updatedAt(),
   },
   (t) => [uniqueIndex("invoice_designs_org_key").on(t.orgId)],
+);
+
+/**
+ * Apps of ours whose subscription payments Tevah turns into paid invoices:
+ * through Razorpay webhooks, or an app calling Tevah's signed API.
+ */
+export const connectedApps = mysqlTable(
+  "connected_apps",
+  {
+    id: id(),
+    orgId: orgId(),
+    name: varchar("name", { length: 100 }).notNull(),
+    source: mysqlEnum("source", ["razorpay", "api"]).notNull(),
+    /** Shared secret: Razorpay's webhook secret, or the key the app signs API calls with. */
+    secret: varchar("secret", { length: 100 }).notNull(),
+    /** Razorpay only: take just the payments whose notes.app equals this; null takes all. */
+    notesFilter: varchar("notes_filter", { length: 100 }),
+    sac: varchar("sac", { length: 8 }).notNull(),
+    gstRateBps: int("gst_rate_bps").notNull().default(1800),
+    incomeAccountId: uuidCol("income_account_id")
+      .notNull()
+      .references(() => accounts.id),
+    /** Journal the money lands in when the customer pays: for Razorpay, its clearing balance. */
+    journalId: uuidCol("journal_id")
+      .notNull()
+      .references(() => journals.id),
+    /** Bank journal Razorpay settles into; settlement webhooks move money from the clearing journal here. */
+    bankJournalId: uuidCol("bank_journal_id").references(() => journals.id),
+    /** Where the gateway's fee goes; null leaves fees to be booked at settlement. */
+    feeAccountId: uuidCol("fee_account_id").references(() => accounts.id),
+    emailInvoices: boolean("email_invoices").notNull().default(true),
+    active: boolean("active").notNull().default(true),
+    createdBy: uuidCol("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+    lastEventAt: timestamp("last_event_at", { fsp: 3 }),
+  },
+  (t) => [index("connected_apps_org_idx").on(t.orgId)],
+);
+
+/** Every payment an app reported, and what Tevah did with it. */
+export const appPayments = mysqlTable(
+  "app_payments",
+  {
+    id: id(),
+    orgId: orgId(),
+    appId: uuidCol("app_id")
+      .notNull()
+      .references(() => connectedApps.id),
+    /** The gateway's or app's payment id; one invoice per payment. */
+    externalId: varchar("external_id", { length: 100 }).notNull(),
+    event: varchar("event", { length: 60 }).notNull(),
+    status: mysqlEnum("status", ["invoiced", "ignored", "failed"]).notNull(),
+    amount: paise("amount"),
+    customerName: varchar("customer_name", { length: 200 }),
+    customerEmail: varchar("customer_email", { length: 200 }),
+    documentId: uuidCol("document_id").references(() => documents.id),
+    paymentId: uuidCol("payment_id").references(() => payments.id),
+    error: text("error"),
+    emailStatus: mysqlEnum("email_status", ["pending", "sent", "failed", "off"]).notNull().default("off"),
+    emailError: text("email_error"),
+    emailedAt: timestamp("emailed_at", { fsp: 3 }),
+    payload: text("payload"),
+    receivedAt: createdAt(),
+  },
+  (t) => [uniqueIndex("app_payments_app_external_key").on(t.orgId, t.appId, t.externalId), index("app_payments_org_received_idx").on(t.orgId, t.receivedAt)],
 );

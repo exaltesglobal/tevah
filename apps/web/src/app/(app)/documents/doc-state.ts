@@ -19,7 +19,7 @@ export interface DocState {
   date: string;
   dueDate: string;
   placeOfSupply: string;
-  supplyType: "intra" | "inter";
+  supplyType: "intra" | "inter" | "export";
   reverseCharge: boolean;
   vendorReference: string;
   originalDocumentId: string;

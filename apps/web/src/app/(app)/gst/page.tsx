@@ -67,7 +67,7 @@ export default async function GstPage({ searchParams }: { searchParams: Promise<
             <ButtonLink href={`/gst/export?month=${month}&format=json`} prefetch={false}>
               Download JSON for the GST portal
             </ButtonLink>
-            {["b2b", "b2cl", "b2cs", "cdnr", "hsn", "docs"].map((s) => (
+            {["b2b", "b2cl", "b2cs", "cdnr", "exp", "hsn", "docs"].map((s) => (
               <ButtonLink key={s} variant="secondary" href={`/gst/export?month=${month}&format=csv&section=${s}`} prefetch={false}>
                 {s.toUpperCase()} CSV
               </ButtonLink>
@@ -103,7 +103,9 @@ export default async function GstPage({ searchParams }: { searchParams: Promise<
               ))}
             </Table>
           </Section>
+          <InvoiceTable title="6A · Exports under LUT (without payment of IGST)" rows={gstr1.exp} />
           <InvoiceTable title="9B · Credit notes to registered customers" rows={gstr1.cdnr} showGstin />
+          {gstr1.cdnur.length > 0 && <InvoiceTable title="9B · Credit notes against exports" rows={gstr1.cdnur} />}
           <Section title="8 · Nil-rated supplies">
             {gstr1.nil.length === 0 ? (
               <p className="text-sm text-stone-500">None</p>
@@ -178,6 +180,7 @@ export default async function GstPage({ searchParams }: { searchParams: Promise<
           <Table3b
             rows={[
               ["3.1(a) Outward taxable supplies", gstr3b.outwardTaxable],
+              ["3.1(b) Zero-rated supplies (exports under LUT)", { taxable: gstr3b.outwardZeroRated, igst: 0, cgst: 0, sgst: 0 }],
               ["3.1(c) Nil-rated and exempt supplies", { taxable: gstr3b.outwardNil, igst: 0, cgst: 0, sgst: 0 }],
               ["3.1(d) Inward supplies liable to reverse charge", gstr3b.inwardReverseCharge],
             ]}

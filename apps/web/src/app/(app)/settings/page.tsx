@@ -22,9 +22,14 @@ export default async function SettingsPage() {
               Invoice design
             </ButtonLink>
             {session.role === "admin" && (
-              <ButtonLink href="/settings/import" variant="secondary">
-                Import from Odoo
-              </ButtonLink>
+              <>
+                <ButtonLink href="/settings/apps" variant="secondary">
+                  Connected apps
+                </ButtonLink>
+                <ButtonLink href="/settings/import" variant="secondary">
+                  Import from Odoo
+                </ButtonLink>
+              </>
             )}
           </>
         }

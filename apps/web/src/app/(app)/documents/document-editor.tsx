@@ -175,10 +175,14 @@ export function DocumentEditor({
             ))}
           </Select>
         </Field>
-        <Field label="Tax type" hint={doc.supplyType === "intra" ? "Within the state" : "Between states"}>
-          <Select value={doc.supplyType} onChange={(e) => set("supplyType", e.target.value as "intra" | "inter")}>
+        <Field
+          label="Tax type"
+          hint={doc.supplyType === "intra" ? "Within the state" : doc.supplyType === "inter" ? "Between states" : "Zero-rated: customer outside India, no GST charged"}
+        >
+          <Select value={doc.supplyType} onChange={(e) => set("supplyType", e.target.value as "intra" | "inter" | "export")}>
             <option value="intra">CGST + SGST</option>
             <option value="inter">IGST</option>
+            {sales && <option value="export">Export under LUT (no GST)</option>}
           </Select>
         </Field>
         {!sales && (
@@ -331,7 +335,7 @@ export function DocumentEditor({
               <Row label="SGST" value={totals.sgst} />
             </>
           ) : (
-            <Row label="IGST" value={totals.igst} />
+            <Row label={doc.supplyType === "export" ? "IGST (export under LUT)" : "IGST"} value={totals.igst} />
           )}
           {doc.reverseCharge && <p className="text-xs text-amber-700">Reverse charge: GST is paid by the recipient.</p>}
           <Row label="Round off" value={totals.roundOff} />

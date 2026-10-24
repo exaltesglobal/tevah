@@ -23,6 +23,7 @@ const companyInput = z.object({
     .string()
     .regex(/^\d{6}$/, "PIN code is 6 digits")
     .optional(),
+  lut: z.string().max(30).optional(),
   email: z.email("Enter a valid email").optional(),
   phone: z.string().max(30).optional(),
 });
@@ -31,7 +32,7 @@ export async function saveCompany(_prev: FormState, data: FormData): Promise<For
   const session = await requireWriter();
   if (session.role !== "admin") return { error: "Only an admin can change company details." };
   const raw = formValues(data);
-  const parsed = companyInput.safeParse({ ...raw, tan: raw.tan?.toUpperCase() });
+  const parsed = companyInput.safeParse({ ...raw, tan: raw.tan?.toUpperCase(), lut: raw.lut?.toUpperCase() });
   if (!parsed.success) return zodErrors(parsed.error, data);
   // GSTIN and state are fixed: changing them would change the tax on every document.
   const values = Object.fromEntries(Object.entries(parsed.data).map(([k, v]) => [k, v ?? null]));
